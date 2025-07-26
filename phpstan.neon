@@ -1,0 +1,24 @@
+parameters:
+    level: 8
+    paths:
+        - src
+        - tests
+    tmpDir: .phpstan.cache
+    checkMissingIterableValueType: false
+    checkGenericClassInNonGenericObjectType: false
+    reportUnmatchedIgnoredErrors: false
+    ignoreErrors:
+        # Allow mixed types in test fixtures and mocks
+        - '#Parameter .* of method .*Test::.* has no value type specified in iterable type array#'
+        - '#Method .*Test::.* has no return type specified#'
+        - '#Method .*Test::.* return type has no value type specified in iterable type array#'
+        
+        # Allow dynamic properties in test doubles
+        - '#Access to an undefined property [a-zA-Z0-9\\_]+::\$[a-zA-Z0-9_]+#'
+        
+        # Allow some flexibility in integration tests
+        - '#Call to an undefined method [a-zA-Z0-9\\_]+::[a-zA-Z0-9_]+\(\)#'
+        
+    excludePaths:
+        - tests/fixtures/*
+        - vendor/*
