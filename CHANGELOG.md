@@ -17,6 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic project structure following EdgeBinder adapter patterns
 - Integration with zestic/weaviate-php-client
 - Comprehensive documentation and examples
+- Complete CRUD operations implementation for WeaviateAdapter
+- UUID mapping for Weaviate 1.31 compatibility
+- Comprehensive unit and integration test coverage
+- Exception hierarchy with WeaviateException and SchemaException
+- Entity extraction and metadata validation utilities
+
+### Changed
+- Updated from StorageException to PersistenceException following core library changes
+- Metadata stored as JSON strings for Weaviate 1.31 compatibility
+- Schema creation uses proper Weaviate 1.31 format with vectorizer disabled for Phase 1
 
 ### Changed
 - Nothing yet
