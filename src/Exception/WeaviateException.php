@@ -14,24 +14,15 @@ use EdgeBinder\Exception\PersistenceException;
  */
 class WeaviateException extends PersistenceException
 {
-    private bool $retryable;
-
-    private ?string $weaviateErrorCode;
-
-    private ?array $weaviateErrorDetails;
-
     public function __construct(
         string $operation,
         string $reason,
         ?\Throwable $previous = null,
-        bool $retryable = false,
-        ?string $weaviateErrorCode = null,
-        ?array $weaviateErrorDetails = null
+        private bool $retryable = false,
+        private ?string $weaviateErrorCode = null,
+        private ?array $weaviateErrorDetails = null,
     ) {
         parent::__construct($operation, $reason, $previous);
-        $this->retryable = $retryable;
-        $this->weaviateErrorCode = $weaviateErrorCode;
-        $this->weaviateErrorDetails = $weaviateErrorDetails;
     }
 
     /**
