@@ -6,6 +6,9 @@ namespace EdgeBinder\Adapter\Weaviate;
 
 use EdgeBinder\Adapter\Weaviate\Exception\SchemaException;
 use EdgeBinder\Adapter\Weaviate\Exception\WeaviateException;
+use EdgeBinder\Adapter\Weaviate\Mapping\BindingMapper;
+use EdgeBinder\Adapter\Weaviate\Mapping\MetadataMapper;
+use EdgeBinder\Adapter\Weaviate\Query\BasicWeaviateQueryBuilder;
 use EdgeBinder\Binding;
 use EdgeBinder\Contracts\BindingInterface;
 use EdgeBinder\Contracts\EntityInterface;
@@ -32,11 +35,20 @@ class WeaviateAdapter implements PersistenceAdapterInterface
 
     private string $collectionName;
 
-    public function __construct(WeaviateClient $client, array $config = [])
-    {
+    private BindingMapper $bindingMapper;
+
+    public function __construct(
+        WeaviateClient $client,
+        array $config = [],
+        ?BindingMapper $bindingMapper = null
+    ) {
         $this->client = $client;
         $this->config = array_merge($this->getDefaultConfig(), $config);
         $this->collectionName = $this->config['collection_name'];
+
+        // Initialize mappers
+        $metadataMapper = new MetadataMapper();
+        $this->bindingMapper = $bindingMapper ?? new BindingMapper($metadataMapper);
 
         $this->initializeSchema();
     }
@@ -48,7 +60,11 @@ class WeaviateAdapter implements PersistenceAdapterInterface
     {
         try {
             $collection = $this->client->collections()->get($this->collectionName);
-            $properties = $this->toWeaviateProperties($binding);
+            $properties = $this->bindingMapper->toWeaviateProperties($binding);
+
+            // Add the Weaviate UUID for the object
+            $weaviateId = $this->generateUuidFromString($binding->getId());
+            $properties['id'] = $weaviateId;
 
             $result = $collection->data()->create($properties);
 
@@ -73,7 +89,7 @@ class WeaviateAdapter implements PersistenceAdapterInterface
             $weaviateId = $this->generateUuidFromString($bindingId);
             $result = $collection->data()->get($weaviateId);
 
-            return $this->fromWeaviateObject($result);
+            return $this->bindingMapper->fromWeaviateObject($result);
         } catch (\Exception $e) {
             // If the object is not found, Weaviate typically returns a 404 error
             // We'll treat this as a null result rather than an exception
@@ -150,28 +166,6 @@ class WeaviateAdapter implements PersistenceAdapterInterface
     }
 
     /**
-     * Convert a BindingInterface to Weaviate properties format.
-     */
-    private function toWeaviateProperties(BindingInterface $binding): array
-    {
-        // Generate a UUID for Weaviate, but store the original binding ID as a property
-        $weaviateId = $this->generateUuidFromString($binding->getId());
-
-        return [
-            'id' => $weaviateId, // Weaviate UUID
-            'bindingId' => $binding->getId(), // Original binding ID for queries
-            'fromEntityType' => $binding->getFromType(),
-            'fromEntityId' => $binding->getFromId(),
-            'toEntityType' => $binding->getToType(),
-            'toEntityId' => $binding->getToId(),
-            'bindingType' => $binding->getType(),
-            'metadata' => json_encode($binding->getMetadata()), // Store as JSON string
-            'createdAt' => $binding->getCreatedAt()->format('c'),
-            'updatedAt' => $binding->getUpdatedAt()->format('c'),
-        ];
-    }
-
-    /**
      * Generate a deterministic UUID from a string.
      * This ensures the same binding ID always maps to the same Weaviate UUID.
      */
@@ -188,33 +182,6 @@ class WeaviateAdapter implements PersistenceAdapterInterface
             '4' . substr($hash, 13, 3), // Version 4
             dechex(hexdec(substr($hash, 16, 1)) & 0x3 | 0x8) . substr($hash, 17, 3), // Variant
             substr($hash, 20, 12)
-        );
-    }
-
-    /**
-     * Convert a Weaviate object to BindingInterface.
-     */
-    private function fromWeaviateObject(array $weaviateObject): BindingInterface
-    {
-        $props = $weaviateObject['properties'] ?? $weaviateObject;
-
-        // Decode JSON metadata back to array
-        $metadata = [];
-        if (isset($props['metadata']) && is_string($props['metadata'])) {
-            $decoded = json_decode($props['metadata'], true);
-            $metadata = $decoded ?? [];
-        }
-
-        return new Binding(
-            id: $props['bindingId'],
-            fromType: $props['fromEntityType'],
-            fromId: $props['fromEntityId'],
-            toType: $props['toEntityType'],
-            toId: $props['toEntityId'],
-            type: $props['bindingType'],
-            metadata: $metadata,
-            createdAt: new \DateTimeImmutable($props['createdAt']),
-            updatedAt: new \DateTimeImmutable($props['updatedAt'])
         );
     }
 
@@ -414,6 +381,16 @@ class WeaviateAdapter implements PersistenceAdapterInterface
             'findBetweenEntities requires Phase 2 client enhancements. ' .
             'This feature will be available when the Zestic client supports query operations.'
         );
+    }
+
+    /**
+     * Create a new query builder instance.
+     *
+     * Phase 1: Returns BasicWeaviateQueryBuilder with Phase 2 execution placeholders.
+     */
+    public function query(): QueryBuilderInterface
+    {
+        return new BasicWeaviateQueryBuilder($this->client, $this->collectionName);
     }
 
     /**
