@@ -2,6 +2,7 @@
 
 [![Tests](https://github.com/edgebinder/weaviate-adapter/actions/workflows/test.yml/badge.svg)](https://github.com/edgebinder/weaviate-adapter/actions/workflows/test.yml)
 [![Lint](https://github.com/edgebinder/weaviate-adapter/actions/workflows/lint.yml/badge.svg)](https://github.com/edgebinder/weaviate-adapter/actions/workflows/lint.yml)
+[![codecov](https://codecov.io/gh/edgebinder/weaviate-adapter/branch/main/graph/badge.svg)](https://codecov.io/gh/edgebinder/weaviate-adapter)
 [![PHP Version](https://img.shields.io/badge/php-%3E%3D8.3-blue.svg)](https://php.net/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
