@@ -102,7 +102,7 @@ class WeaviateAdapterFactory implements AdapterFactoryInterface
      *
      * @throws AdapterException If configuration is invalid
      */
-    private function validateConfiguration(array $config): void
+    protected function validateConfiguration(array $config): void
     {
         $required = ['container', 'instance', 'global'];
         $missing = [];
@@ -149,7 +149,7 @@ class WeaviateAdapterFactory implements AdapterFactoryInterface
      *
      * @throws AdapterException If Weaviate client cannot be retrieved or is invalid
      */
-    private function getWeaviateClient(ContainerInterface $container, string $serviceName): WeaviateClient
+    protected function getWeaviateClient(ContainerInterface $container, string $serviceName): WeaviateClient
     {
         try {
             if (!$container->has($serviceName)) {
@@ -201,7 +201,7 @@ class WeaviateAdapterFactory implements AdapterFactoryInterface
      *
      * @return array<string, mixed> Adapter configuration
      */
-    private function buildAdapterConfig(array $instanceConfig, array $globalConfig): array
+    protected function buildAdapterConfig(array $instanceConfig, array $globalConfig): array
     {
         $config = [];
 

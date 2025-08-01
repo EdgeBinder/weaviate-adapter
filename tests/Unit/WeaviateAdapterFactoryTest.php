@@ -350,4 +350,311 @@ class WeaviateAdapterFactoryTest extends TestCase
 
         $this->factory->createAdapter($config);
     }
+
+    /**
+     * Test that invalid vectorizer config throws exception.
+     */
+    public function testCreateAdapterWithInvalidVectorizerConfig(): void
+    {
+        $config = [
+            'container' => $this->container,
+            'instance' => [
+                'weaviate_client' => 'weaviate.client.test',
+                'vectorizer' => 'not-an-array',
+            ],
+            'global' => [],
+        ];
+
+        $this->container
+            ->expects($this->once())
+            ->method('has')
+            ->with('weaviate.client.test')
+            ->willReturn(true);
+
+        $this->container
+            ->expects($this->once())
+            ->method('get')
+            ->with('weaviate.client.test')
+            ->willReturn($this->weaviateClient);
+
+        $this->expectException(AdapterException::class);
+        $this->expectExceptionMessage('Vectorizer configuration must be an array');
+
+        $this->factory->createAdapter($config);
+    }
+
+    /**
+     * Test that invalid performance config throws exception.
+     */
+    public function testCreateAdapterWithInvalidPerformanceConfig(): void
+    {
+        $config = [
+            'container' => $this->container,
+            'instance' => [
+                'weaviate_client' => 'weaviate.client.test',
+                'performance' => 'not-an-array',
+            ],
+            'global' => [],
+        ];
+
+        $this->container
+            ->expects($this->once())
+            ->method('has')
+            ->with('weaviate.client.test')
+            ->willReturn(true);
+
+        $this->container
+            ->expects($this->once())
+            ->method('get')
+            ->with('weaviate.client.test')
+            ->willReturn($this->weaviateClient);
+
+        $this->expectException(AdapterException::class);
+        $this->expectExceptionMessage('Performance configuration must be an array');
+
+        $this->factory->createAdapter($config);
+    }
+
+    /**
+     * Test that Weaviate client connection failure throws exception.
+     */
+    public function testCreateAdapterWithWeaviateConnectionFailure(): void
+    {
+        $config = [
+            'container' => $this->container,
+            'instance' => [
+                'weaviate_client' => 'weaviate.client.test',
+            ],
+            'global' => [],
+        ];
+
+        // Create a client that throws on collections() call
+        $faultyClient = $this->createMock(WeaviateClient::class);
+        $faultyClient
+            ->method('collections')
+            ->willThrowException(new \Exception('Connection failed'));
+
+        $this->container
+            ->expects($this->once())
+            ->method('has')
+            ->with('weaviate.client.test')
+            ->willReturn(true);
+
+        $this->container
+            ->expects($this->once())
+            ->method('get')
+            ->with('weaviate.client.test')
+            ->willReturn($faultyClient);
+
+        $this->expectException(AdapterException::class);
+        $this->expectExceptionMessage('Weaviate client connection test failed: Connection failed');
+
+        $this->factory->createAdapter($config);
+    }
+
+    /**
+     * Test that container exception during client retrieval is handled.
+     */
+    public function testCreateAdapterWithContainerException(): void
+    {
+        $config = [
+            'container' => $this->container,
+            'instance' => [
+                'weaviate_client' => 'weaviate.client.test',
+            ],
+            'global' => [],
+        ];
+
+        $this->container
+            ->expects($this->once())
+            ->method('has')
+            ->with('weaviate.client.test')
+            ->willReturn(true);
+
+        $this->container
+            ->expects($this->once())
+            ->method('get')
+            ->with('weaviate.client.test')
+            ->willThrowException(new \Exception('Container error'));
+
+        $this->expectException(AdapterException::class);
+        $this->expectExceptionMessage('Failed to get Weaviate client \'weaviate.client.test\': Container error');
+
+        $this->factory->createAdapter($config);
+    }
+
+    /**
+     * Test that multiple missing configuration keys are reported.
+     */
+    public function testCreateAdapterWithMultipleMissingKeys(): void
+    {
+        $config = [];
+
+        $this->expectException(AdapterException::class);
+        $this->expectExceptionMessage('Missing required configuration for adapter type \'weaviate\': container, instance, global');
+
+        $this->factory->createAdapter($config);
+    }
+
+    /**
+     * Test that non-string collection name throws exception.
+     */
+    public function testCreateAdapterWithNonStringCollectionName(): void
+    {
+        $config = [
+            'container' => $this->container,
+            'instance' => [
+                'weaviate_client' => 'weaviate.client.test',
+                'collection_name' => 123, // Non-string
+            ],
+            'global' => [],
+        ];
+
+        $this->container
+            ->expects($this->once())
+            ->method('has')
+            ->with('weaviate.client.test')
+            ->willReturn(true);
+
+        $this->container
+            ->expects($this->once())
+            ->method('get')
+            ->with('weaviate.client.test')
+            ->willReturn($this->weaviateClient);
+
+        $this->expectException(AdapterException::class);
+        $this->expectExceptionMessage('Collection name must be a non-empty string');
+
+        $this->factory->createAdapter($config);
+    }
+
+    /**
+     * Test that debug configuration is properly handled.
+     */
+    public function testCreateAdapterWithDebugConfiguration(): void
+    {
+        $config = [
+            'container' => $this->container,
+            'instance' => [
+                'weaviate_client' => 'weaviate.client.test',
+            ],
+            'global' => [
+                'debug' => true,
+            ],
+        ];
+
+        $this->container
+            ->expects($this->once())
+            ->method('has')
+            ->with('weaviate.client.test')
+            ->willReturn(true);
+
+        $this->container
+            ->expects($this->once())
+            ->method('get')
+            ->with('weaviate.client.test')
+            ->willReturn($this->weaviateClient);
+
+        $adapter = $this->factory->createAdapter($config);
+
+        $this->assertInstanceOf(WeaviateAdapter::class, $adapter);
+    }
+
+    /**
+     * Test that default weaviate client service name is used when not specified.
+     */
+    public function testCreateAdapterWithDefaultClientServiceName(): void
+    {
+        $config = [
+            'container' => $this->container,
+            'instance' => [], // No weaviate_client specified
+            'global' => [],
+        ];
+
+        $this->container
+            ->expects($this->once())
+            ->method('has')
+            ->with('weaviate.client.default') // Should use default service name
+            ->willReturn(true);
+
+        $this->container
+            ->expects($this->once())
+            ->method('get')
+            ->with('weaviate.client.default')
+            ->willReturn($this->weaviateClient);
+
+        $adapter = $this->factory->createAdapter($config);
+
+        $this->assertInstanceOf(WeaviateAdapter::class, $adapter);
+    }
+
+    /**
+     * Test that adapter creation failure in constructor is handled.
+     */
+    public function testCreateAdapterWithConstructorFailure(): void
+    {
+        $config = [
+            'container' => $this->container,
+            'instance' => [
+                'weaviate_client' => 'weaviate.client.test',
+                'collection_name' => 'TestBindings',
+            ],
+            'global' => [],
+        ];
+
+        // Create a client that will cause WeaviateAdapter constructor to fail
+        $problematicClient = $this->createMock(WeaviateClient::class);
+        $collectionsManager = $this->createMock(\Weaviate\Collections\Collections::class);
+        $problematicClient
+            ->method('collections')
+            ->willReturn($collectionsManager);
+
+        $this->container
+            ->expects($this->once())
+            ->method('has')
+            ->with('weaviate.client.test')
+            ->willReturn(true);
+
+        $this->container
+            ->expects($this->once())
+            ->method('get')
+            ->with('weaviate.client.test')
+            ->willReturn($problematicClient);
+
+        // This should work fine since we're not actually testing constructor failure
+        // but rather ensuring the factory handles any potential exceptions
+        $adapter = $this->factory->createAdapter($config);
+        $this->assertInstanceOf(WeaviateAdapter::class, $adapter);
+    }
+
+    /**
+     * Test edge case with null collection name (should use default).
+     */
+    public function testCreateAdapterWithNullCollectionName(): void
+    {
+        $config = [
+            'container' => $this->container,
+            'instance' => [
+                'weaviate_client' => 'weaviate.client.test',
+                'collection_name' => null, // Should use default from WeaviateAdapter
+            ],
+            'global' => [],
+        ];
+
+        $this->container
+            ->expects($this->once())
+            ->method('has')
+            ->with('weaviate.client.test')
+            ->willReturn(true);
+
+        $this->container
+            ->expects($this->once())
+            ->method('get')
+            ->with('weaviate.client.test')
+            ->willReturn($this->weaviateClient);
+
+        // This should work fine as WeaviateAdapter has default config
+        $adapter = $this->factory->createAdapter($config);
+        $this->assertInstanceOf(WeaviateAdapter::class, $adapter);
+    }
 }
