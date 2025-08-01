@@ -39,27 +39,34 @@ composer require edgebinder/weaviate-adapter
 
 ## Quick Start
 
+### Option 1: Using the Registry System (Recommended)
+
 ```php
 <?php
 
 use EdgeBinder\EdgeBinder;
-use EdgeBinder\Adapter\Weaviate\WeaviateAdapter;
+use EdgeBinder\Adapter\Weaviate\WeaviateAdapterFactory;
+use EdgeBinder\Registry\AdapterRegistry;
 use Weaviate\WeaviateClient;
 
-// Connect to Weaviate
-$weaviateClient = WeaviateClient::connectToLocal();
+// Register the Weaviate adapter factory
+AdapterRegistry::register(new WeaviateAdapterFactory());
 
-// Create the adapter
-$adapter = new WeaviateAdapter($weaviateClient, [
+// Configure your container to provide the Weaviate client
+$container = /* your PSR-11 container */;
+
+// Create EdgeBinder using configuration
+$config = [
+    'adapter' => 'weaviate',
+    'weaviate_client' => 'weaviate.client.default',
     'collection_name' => 'MyAppBindings',
     'schema' => [
         'auto_create' => true,
         'vectorizer' => 'text2vec-openai'
     ]
-]);
+];
 
-// Create EdgeBinder instance
-$binder = new EdgeBinder($adapter);
+$binder = EdgeBinder::fromConfiguration($config, $container);
 
 // Use EdgeBinder as normal
 $workspace = new Entity('workspace-123', 'Workspace');
@@ -75,6 +82,115 @@ $binding = $binder->bind(
         'confidence_score' => 0.95
     ]
 );
+```
+
+### Option 2: Direct Adapter Creation
+
+```php
+<?php
+
+use EdgeBinder\EdgeBinder;
+use EdgeBinder\Adapter\Weaviate\WeaviateAdapter;
+use Weaviate\WeaviateClient;
+
+// Connect to Weaviate
+$weaviateClient = WeaviateClient::connectToLocal();
+
+// Create the adapter directly
+$adapter = new WeaviateAdapter($weaviateClient, [
+    'collection_name' => 'MyAppBindings',
+    'schema' => [
+        'auto_create' => true,
+        'vectorizer' => 'text2vec-openai'
+    ]
+]);
+
+// Create EdgeBinder instance
+$binder = EdgeBinder::fromAdapter($adapter);
+```
+
+## Framework Integration
+
+The Weaviate adapter supports the EdgeBinder registry system, making it easy to integrate with any PHP framework:
+
+### Laminas/Mezzio
+
+```php
+// In your Module.php or application bootstrap
+use EdgeBinder\Adapter\Weaviate\WeaviateAdapterFactory;
+use EdgeBinder\Registry\AdapterRegistry;
+
+AdapterRegistry::register(new WeaviateAdapterFactory());
+
+// In your service factory
+public function __invoke(ContainerInterface $container): EdgeBinder
+{
+    $config = $container->get('config')['edgebinder']['rag'];
+    return EdgeBinder::fromConfiguration($config, $container);
+}
+```
+
+### Symfony
+
+```php
+// In your bundle boot method or compiler pass
+use EdgeBinder\Adapter\Weaviate\WeaviateAdapterFactory;
+use EdgeBinder\Registry\AdapterRegistry;
+
+AdapterRegistry::register(new WeaviateAdapterFactory());
+
+// In your service
+public function createEdgeBinder(ContainerInterface $container): EdgeBinder
+{
+    $config = $container->getParameter('edgebinder.rag');
+    return EdgeBinder::fromConfiguration($config, $container);
+}
+```
+
+### Laravel
+
+```php
+// In your service provider boot method
+use EdgeBinder\Adapter\Weaviate\WeaviateAdapterFactory;
+use EdgeBinder\Registry\AdapterRegistry;
+
+public function boot()
+{
+    AdapterRegistry::register(new WeaviateAdapterFactory());
+}
+
+// In your service
+public function createEdgeBinder(): EdgeBinder
+{
+    $config = config('edgebinder.rag');
+    return EdgeBinder::fromConfiguration($config, app());
+}
+```
+
+### Configuration Example
+
+```php
+return [
+    'edgebinder' => [
+        'rag' => [
+            'adapter' => 'weaviate',
+            'weaviate_client' => 'weaviate.client.rag',
+            'collection_name' => 'RAGBindings',
+            'schema' => [
+                'auto_create' => true,
+                'vectorizer' => 'text2vec-openai',
+            ],
+            'vectorizer' => [
+                'provider' => 'openai',
+                'model' => 'text-embedding-ada-002',
+            ],
+            'performance' => [
+                'batch_size' => 100,
+                'vector_cache_ttl' => 3600,
+            ],
+        ],
+    ],
+];
 ```
 
 ## Development
