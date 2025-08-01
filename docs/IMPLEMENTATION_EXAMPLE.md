@@ -272,7 +272,7 @@ The implementation above shows a streamlined approach where the `WeaviateAdapter
 
 This implementation provides:
 
-1. **Full PersistenceAdapterInterface compliance** - Works seamlessly with EdgeBinder core
+1. **Full PersistenceAdapterInterface compliance** - Works seamlessly with EdgeBinder
 2. **Vector similarity search capabilities** - Leverage Weaviate's vector database features
 3. **Rich metadata querying** - Complex queries on relationship metadata
 4. **Semantic concept search** - Natural language concept-based queries

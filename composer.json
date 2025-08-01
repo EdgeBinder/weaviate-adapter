@@ -27,7 +27,7 @@
     },
     "require": {
         "php": "^8.3",
-        "edgebinder/core": "dev-main",
+        "edgebinder/edgebinder": "dev-main",
         "psr/log": "^3.0",
         "zestic/weaviate-php-client": "^0.2.0"
     },
@@ -44,7 +44,7 @@
     "repositories": [
         {
             "type": "git",
-            "url": "git@github.com:EdgeBinder/core.git"
+            "url": "git@github.com:EdgeBinder/edgebinder.git"
         }
     ],
     "minimum-stability": "stable",
