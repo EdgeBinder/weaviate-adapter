@@ -29,7 +29,7 @@
         "php": "^8.3",
         "edgebinder/edgebinder": "dev-main",
         "psr/log": "^3.0",
-        "zestic/weaviate-php-client": "^0.2.0"
+        "zestic/weaviate-php-client": "^0.3.0"
     },
     "require-dev": {
         "ergebnis/composer-normalize": "^2.42",
