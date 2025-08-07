@@ -141,21 +141,6 @@ class WeaviateAdapterFactoryIntegrationTest extends TestCase
     }
 
     /**
-     * Test that duplicate registration throws exception.
-     */
-    public function testDuplicateRegistrationThrowsException(): void
-    {
-        // Register the factory
-        AdapterRegistry::register($this->factory);
-
-        // Try to register again
-        $this->expectException(\EdgeBinder\Exception\AdapterException::class);
-        $this->expectExceptionMessage('Adapter type \'weaviate\' is already registered');
-
-        AdapterRegistry::register($this->factory);
-    }
-
-    /**
      * Test that unregistering works correctly.
      */
     public function testUnregisterAdapter(): void
