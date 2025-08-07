@@ -25,6 +25,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [0.2.1] - 2025-08-07
+
+### Fixed
+- **CRITICAL**: Fixed DateTimeImmutable null value error in BindingMapper that completely blocked relationship queries
+- Added null-safety checks for timestamp parsing in `BindingMapper::fromWeaviateObject()` method
+- Implemented robust `parseDateTime()` helper method with proper error handling for null, empty, malformed, and missing timestamps
+- Fixed PHPStan static analysis issues: resource type safety and unused method cleanup
+- All EdgeBinder relationship queries (`findProfileWorkspaces()`, `findOrganizationMembers()`, `isOrganizationMember()`, `isWorkspaceOwner()`) now work correctly
+
+### Added
+- Comprehensive test coverage for timestamp edge cases with 6 new test methods
+- Graceful fallback to current timestamp when invalid data is encountered
+- Better error handling for malformed timestamp strings from Weaviate
+
+### Technical Details
+- **Root Cause**: Weaviate was returning null values for `createdAt`/`updatedAt` fields, causing `TypeError` in `DateTimeImmutable` constructor
+- **Solution**: Added null-safety with `parseDateTime()` helper that handles null, empty strings, and invalid date formats
+- **Backward Compatibility**: Fully backward compatible with no API changes
+- **Test Coverage**: Added tests for null timestamps, empty strings, malformed dates, and missing properties
+
 ## [0.2.0] - 2025-01-08
 
 ### Added
