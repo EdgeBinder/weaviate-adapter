@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace EdgeBinder\Adapter\Weaviate\Tests\Unit;
 
-use EdgeBinder\Adapter\Weaviate\Exception\WeaviateException;
 use EdgeBinder\Adapter\Weaviate\WeaviateAdapter;
 use EdgeBinder\Exception\InvalidMetadataException;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -93,7 +92,7 @@ class WeaviateAdapterEdgeCasesTest extends TestCase
      */
     public function testExtractEntityIdWithEmptyStringFromGetId(): void
     {
-        $entity = new class {
+        $entity = new class () {
             public function getId(): string
             {
                 return '';
@@ -111,7 +110,7 @@ class WeaviateAdapterEdgeCasesTest extends TestCase
      */
     public function testExtractEntityIdWithEmptyStringFromIdProperty(): void
     {
-        $entity = new class {
+        $entity = new class () {
             public string $id = '';
         };
 
@@ -126,7 +125,7 @@ class WeaviateAdapterEdgeCasesTest extends TestCase
      */
     public function testExtractEntityTypeWithEmptyStringFromGetType(): void
     {
-        $entity = new class {
+        $entity = new class () {
             public function getType(): string
             {
                 return '';
@@ -205,7 +204,7 @@ class WeaviateAdapterEdgeCasesTest extends TestCase
     public function testConvertQueryWithUnknownOperator(): void
     {
         $query = new \EdgeBinder\Adapter\Weaviate\Query\BasicWeaviateQueryBuilder($this->mockClient, 'TestBindings');
-        
+
         // Manually add a condition with unknown operator
         $reflection = new \ReflectionClass($query);
         $property = $reflection->getProperty('whereConditions');
@@ -234,7 +233,7 @@ class WeaviateAdapterEdgeCasesTest extends TestCase
     public function testConvertQueryWithConditionMissingField(): void
     {
         $query = new \EdgeBinder\Adapter\Weaviate\Query\BasicWeaviateQueryBuilder($this->mockClient, 'TestBindings');
-        
+
         // Manually add a condition without field or property
         $reflection = new \ReflectionClass($query);
         $property = $reflection->getProperty('whereConditions');
@@ -262,7 +261,7 @@ class WeaviateAdapterEdgeCasesTest extends TestCase
     public function testConvertQueryWithConditionMissingValue(): void
     {
         $query = new \EdgeBinder\Adapter\Weaviate\Query\BasicWeaviateQueryBuilder($this->mockClient, 'TestBindings');
-        
+
         // Manually add a condition with field but no value
         $reflection = new \ReflectionClass($query);
         $property = $reflection->getProperty('whereConditions');

@@ -247,6 +247,179 @@ class BindingMapperTest extends TestCase
     }
 
     /**
+     * Test handling null createdAt timestamp.
+     */
+    public function testFromWeaviateObjectWithNullCreatedAt(): void
+    {
+        $weaviateObject = [
+            'bindingId' => 'test-binding-null-created',
+            'fromEntityType' => 'Workspace',
+            'fromEntityId' => 'workspace-123',
+            'toEntityType' => 'Project',
+            'toEntityId' => 'project-456',
+            'bindingType' => 'has_access',
+            'metadata' => '{}',
+            'createdAt' => null,
+            'updatedAt' => '2024-01-15T10:30:00Z',
+        ];
+
+        $this->mockMetadataMapper
+            ->method('deserialize')
+            ->willReturn([]);
+
+        // This should not throw a TypeError after the fix
+        $result = $this->bindingMapper->fromWeaviateObject($weaviateObject);
+
+        $this->assertInstanceOf(BindingInterface::class, $result);
+        $this->assertInstanceOf(\DateTimeImmutable::class, $result->getCreatedAt());
+        $this->assertInstanceOf(\DateTimeImmutable::class, $result->getUpdatedAt());
+    }
+
+    /**
+     * Test handling null updatedAt timestamp.
+     */
+    public function testFromWeaviateObjectWithNullUpdatedAt(): void
+    {
+        $weaviateObject = [
+            'bindingId' => 'test-binding-null-updated',
+            'fromEntityType' => 'Workspace',
+            'fromEntityId' => 'workspace-123',
+            'toEntityType' => 'Project',
+            'toEntityId' => 'project-456',
+            'bindingType' => 'has_access',
+            'metadata' => '{}',
+            'createdAt' => '2024-01-15T10:30:00Z',
+            'updatedAt' => null,
+        ];
+
+        $this->mockMetadataMapper
+            ->method('deserialize')
+            ->willReturn([]);
+
+        // This should not throw a TypeError after the fix
+        $result = $this->bindingMapper->fromWeaviateObject($weaviateObject);
+
+        $this->assertInstanceOf(BindingInterface::class, $result);
+        $this->assertInstanceOf(\DateTimeImmutable::class, $result->getCreatedAt());
+        $this->assertInstanceOf(\DateTimeImmutable::class, $result->getUpdatedAt());
+    }
+
+    /**
+     * Test handling both null timestamps.
+     */
+    public function testFromWeaviateObjectWithBothNullTimestamps(): void
+    {
+        $weaviateObject = [
+            'bindingId' => 'test-binding-both-null',
+            'fromEntityType' => 'Workspace',
+            'fromEntityId' => 'workspace-123',
+            'toEntityType' => 'Project',
+            'toEntityId' => 'project-456',
+            'bindingType' => 'has_access',
+            'metadata' => '{}',
+            'createdAt' => null,
+            'updatedAt' => null,
+        ];
+
+        $this->mockMetadataMapper
+            ->method('deserialize')
+            ->willReturn([]);
+
+        // This should not throw a TypeError after the fix
+        $result = $this->bindingMapper->fromWeaviateObject($weaviateObject);
+
+        $this->assertInstanceOf(BindingInterface::class, $result);
+        $this->assertInstanceOf(\DateTimeImmutable::class, $result->getCreatedAt());
+        $this->assertInstanceOf(\DateTimeImmutable::class, $result->getUpdatedAt());
+    }
+
+    /**
+     * Test handling empty string timestamps.
+     */
+    public function testFromWeaviateObjectWithEmptyStringTimestamps(): void
+    {
+        $weaviateObject = [
+            'bindingId' => 'test-binding-empty-strings',
+            'fromEntityType' => 'Workspace',
+            'fromEntityId' => 'workspace-123',
+            'toEntityType' => 'Project',
+            'toEntityId' => 'project-456',
+            'bindingType' => 'has_access',
+            'metadata' => '{}',
+            'createdAt' => '',
+            'updatedAt' => '',
+        ];
+
+        $this->mockMetadataMapper
+            ->method('deserialize')
+            ->willReturn([]);
+
+        // This should not throw an exception after the fix
+        $result = $this->bindingMapper->fromWeaviateObject($weaviateObject);
+
+        $this->assertInstanceOf(BindingInterface::class, $result);
+        $this->assertInstanceOf(\DateTimeImmutable::class, $result->getCreatedAt());
+        $this->assertInstanceOf(\DateTimeImmutable::class, $result->getUpdatedAt());
+    }
+
+    /**
+     * Test handling malformed timestamp strings.
+     */
+    public function testFromWeaviateObjectWithMalformedTimestamps(): void
+    {
+        $weaviateObject = [
+            'bindingId' => 'test-binding-malformed',
+            'fromEntityType' => 'Workspace',
+            'fromEntityId' => 'workspace-123',
+            'toEntityType' => 'Project',
+            'toEntityId' => 'project-456',
+            'bindingType' => 'has_access',
+            'metadata' => '{}',
+            'createdAt' => 'invalid-date-string',
+            'updatedAt' => 'another-invalid-date',
+        ];
+
+        $this->mockMetadataMapper
+            ->method('deserialize')
+            ->willReturn([]);
+
+        // This should not throw an exception after the fix
+        $result = $this->bindingMapper->fromWeaviateObject($weaviateObject);
+
+        $this->assertInstanceOf(BindingInterface::class, $result);
+        $this->assertInstanceOf(\DateTimeImmutable::class, $result->getCreatedAt());
+        $this->assertInstanceOf(\DateTimeImmutable::class, $result->getUpdatedAt());
+    }
+
+    /**
+     * Test handling missing timestamp properties entirely.
+     */
+    public function testFromWeaviateObjectWithMissingTimestamps(): void
+    {
+        $weaviateObject = [
+            'bindingId' => 'test-binding-missing',
+            'fromEntityType' => 'Workspace',
+            'fromEntityId' => 'workspace-123',
+            'toEntityType' => 'Project',
+            'toEntityId' => 'project-456',
+            'bindingType' => 'has_access',
+            'metadata' => '{}',
+            // No createdAt or updatedAt properties
+        ];
+
+        $this->mockMetadataMapper
+            ->method('deserialize')
+            ->willReturn([]);
+
+        // This should not throw an exception after the fix
+        $result = $this->bindingMapper->fromWeaviateObject($weaviateObject);
+
+        $this->assertInstanceOf(BindingInterface::class, $result);
+        $this->assertInstanceOf(\DateTimeImmutable::class, $result->getCreatedAt());
+        $this->assertInstanceOf(\DateTimeImmutable::class, $result->getUpdatedAt());
+    }
+
+    /**
      * Create a test binding for use in tests.
      */
     private function createTestBinding(): BindingInterface

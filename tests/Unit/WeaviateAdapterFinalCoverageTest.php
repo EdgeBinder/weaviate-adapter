@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 namespace EdgeBinder\Adapter\Weaviate\Tests\Unit;
 
-use EdgeBinder\Adapter\Weaviate\Exception\SchemaException;
 use EdgeBinder\Adapter\Weaviate\Exception\WeaviateException;
 use EdgeBinder\Adapter\Weaviate\Query\BasicWeaviateQueryBuilder;
 use EdgeBinder\Adapter\Weaviate\WeaviateAdapter;
-use EdgeBinder\Binding;
-use EdgeBinder\Contracts\BindingInterface;
 use EdgeBinder\Exception\InvalidMetadataException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -93,7 +90,9 @@ class WeaviateAdapterFinalCoverageTest extends TestCase
 
         $this->adapter->validateAndNormalizeMetadata($metadata);
 
-        fclose($resource);
+        if ($resource !== false) {
+            fclose($resource);
+        }
     }
 
     /**
@@ -101,7 +100,7 @@ class WeaviateAdapterFinalCoverageTest extends TestCase
      */
     public function testExtractEntityIdWithGetIdMethodReturningNonString(): void
     {
-        $entity = new class {
+        $entity = new class () {
             public function getId(): int
             {
                 return 123;
@@ -119,7 +118,7 @@ class WeaviateAdapterFinalCoverageTest extends TestCase
      */
     public function testExtractEntityIdWithIdPropertyNonString(): void
     {
-        $entity = new class {
+        $entity = new class () {
             public int $id = 123;
         };
 
@@ -134,7 +133,7 @@ class WeaviateAdapterFinalCoverageTest extends TestCase
      */
     public function testExtractEntityTypeWithGetTypeMethodReturningNonString(): void
     {
-        $entity = new class {
+        $entity = new class () {
             public function getType(): int
             {
                 return 123;
@@ -206,7 +205,7 @@ class WeaviateAdapterFinalCoverageTest extends TestCase
     public function testConvertQueryWithExistsOperator(): void
     {
         $query = new BasicWeaviateQueryBuilder($this->mockClient, 'TestBindings');
-        
+
         // Manually add a condition with EXISTS operator (no value)
         $reflection = new \ReflectionClass($query);
         $property = $reflection->getProperty('whereConditions');
@@ -233,7 +232,7 @@ class WeaviateAdapterFinalCoverageTest extends TestCase
     public function testConvertQueryWithIsNullOperator(): void
     {
         $query = new BasicWeaviateQueryBuilder($this->mockClient, 'TestBindings');
-        
+
         // Manually add a condition with IS_NULL operator (no value)
         $reflection = new \ReflectionClass($query);
         $property = $reflection->getProperty('whereConditions');
@@ -283,25 +282,5 @@ class WeaviateAdapterFinalCoverageTest extends TestCase
         $adapter = new WeaviateAdapter($this->mockClient, $config);
 
         $this->assertInstanceOf(WeaviateAdapter::class, $adapter);
-    }
-
-    /**
-     * Create a test binding for use in tests.
-     */
-    private function createTestBinding(): BindingInterface
-    {
-        $now = new \DateTimeImmutable();
-
-        return new Binding(
-            id: 'test-binding-123',
-            fromType: 'Workspace',
-            fromId: 'workspace-456',
-            toType: 'Project',
-            toId: 'project-789',
-            type: 'has_access',
-            metadata: ['access_level' => 'write'],
-            createdAt: $now,
-            updatedAt: $now
-        );
     }
 }

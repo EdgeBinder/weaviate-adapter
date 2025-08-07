@@ -8,9 +8,7 @@ use EdgeBinder\Adapter\Weaviate\Query\BasicWeaviateQueryBuilder;
 use EdgeBinder\Adapter\Weaviate\WeaviateAdapter;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Weaviate\Collections\Collection;
 use Weaviate\Collections\Collections;
-use Weaviate\Data\DataOperations;
 use Weaviate\Query\Filter;
 use Weaviate\WeaviateClient;
 

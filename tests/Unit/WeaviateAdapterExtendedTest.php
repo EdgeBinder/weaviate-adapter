@@ -8,7 +8,6 @@ use EdgeBinder\Adapter\Weaviate\Exception\SchemaException;
 use EdgeBinder\Adapter\Weaviate\Exception\WeaviateException;
 use EdgeBinder\Adapter\Weaviate\Query\BasicWeaviateQueryBuilder;
 use EdgeBinder\Adapter\Weaviate\WeaviateAdapter;
-use EdgeBinder\Binding;
 use EdgeBinder\Contracts\BindingInterface;
 use EdgeBinder\Contracts\QueryBuilderInterface;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -427,25 +426,5 @@ class WeaviateAdapterExtendedTest extends TestCase
         $this->assertCount(1, $bindings);
         $this->assertInstanceOf(BindingInterface::class, $bindings[0]);
         $this->assertEquals('test-binding-1', $bindings[0]->getId());
-    }
-
-    /**
-     * Create a test binding for use in tests.
-     */
-    private function createTestBinding(): BindingInterface
-    {
-        $now = new \DateTimeImmutable();
-
-        return new Binding(
-            id: 'test-binding-123',
-            fromType: 'Workspace',
-            fromId: 'workspace-456',
-            toType: 'Project',
-            toId: 'project-789',
-            type: 'has_access',
-            metadata: ['access_level' => 'write'],
-            createdAt: $now,
-            updatedAt: $now
-        );
     }
 }

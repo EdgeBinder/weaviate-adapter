@@ -441,7 +441,7 @@ class WeaviateAdapterTest extends TestCase
      */
     public function testExtractEntityIdWithGetIdMethod(): void
     {
-        $entity = new class {
+        $entity = new class () {
             public function getId(): string
             {
                 return 'entity-456';
@@ -458,7 +458,7 @@ class WeaviateAdapterTest extends TestCase
      */
     public function testExtractEntityIdWithIdProperty(): void
     {
-        $entity = new class {
+        $entity = new class () {
             public string $id = 'entity-789';
         };
 
@@ -472,7 +472,7 @@ class WeaviateAdapterTest extends TestCase
      */
     public function testExtractEntityIdThrowsException(): void
     {
-        $entity = new class {
+        $entity = new class () {
             // No getId method or id property
         };
 
@@ -500,7 +500,7 @@ class WeaviateAdapterTest extends TestCase
      */
     public function testExtractEntityTypeWithGetTypeMethod(): void
     {
-        $entity = new class {
+        $entity = new class () {
             public function getType(): string
             {
                 return 'Project';
@@ -517,7 +517,7 @@ class WeaviateAdapterTest extends TestCase
      */
     public function testExtractEntityTypeFallsBackToClassName(): void
     {
-        $entity = new class {
+        $entity = new class () {
             // No getType method
         };
 

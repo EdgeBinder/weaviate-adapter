@@ -66,8 +66,29 @@ class BindingMapper
             toId: $props['toEntityId'],
             type: $props['bindingType'],
             metadata: $metadata,
-            createdAt: new \DateTimeImmutable($props['createdAt']),
-            updatedAt: new \DateTimeImmutable($props['updatedAt'])
+            createdAt: $this->parseDateTime($props['createdAt'] ?? null),
+            updatedAt: $this->parseDateTime($props['updatedAt'] ?? null)
         );
+    }
+
+    /**
+     * Parse a datetime string into a DateTimeImmutable object with null-safety.
+     *
+     * @param string|null $datetime The datetime string to parse
+     * @return \DateTimeImmutable The parsed datetime or current time if invalid
+     */
+    private function parseDateTime(?string $datetime): \DateTimeImmutable
+    {
+        if ($datetime === null || $datetime === '') {
+            return new \DateTimeImmutable();
+        }
+
+        try {
+            return new \DateTimeImmutable($datetime);
+        } catch (\Exception $e) {
+            // Log warning about invalid timestamp format if needed
+            // For now, return current time as fallback
+            return new \DateTimeImmutable();
+        }
     }
 }
