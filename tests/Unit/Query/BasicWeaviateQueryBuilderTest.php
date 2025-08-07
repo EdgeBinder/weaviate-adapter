@@ -187,14 +187,30 @@ class BasicWeaviateQueryBuilderTest extends TestCase
     }
 
     /**
-     * Test get() method throws exception for Phase 1 limitations.
+     * Test get() method throws exception when no execute callback is set.
      */
-    public function testGetMethodThrowsExceptionForPhase1Limitations(): void
+    public function testGetMethodThrowsExceptionWhenNoCallbackSet(): void
     {
         $this->expectException(\BadMethodCallException::class);
-        $this->expectExceptionMessage('Query execution requires Phase 2 client enhancements');
+        $this->expectExceptionMessage('Query execution callback not set');
 
         $this->queryBuilder->get();
+    }
+
+    /**
+     * Test get() method works when execute callback is set.
+     */
+    public function testGetMethodWorksWithExecuteCallback(): void
+    {
+        // Set up a mock execute callback
+        $this->queryBuilder->setExecuteCallback(function ($query) {
+            return []; // Return empty array for test
+        });
+
+        $result = $this->queryBuilder->get();
+
+        $this->assertIsArray($result);
+        $this->assertEmpty($result);
     }
 
     /**

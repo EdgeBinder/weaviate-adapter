@@ -25,6 +25,8 @@ class BasicWeaviateQueryBuilder implements QueryBuilderInterface
 
     private string $collectionName;
 
+    private ?\Closure $executeCallback = null;
+
     // Query criteria storage
     private ?string $fromEntityId = null;
 
@@ -68,6 +70,16 @@ class BasicWeaviateQueryBuilder implements QueryBuilderInterface
         $this->limit = $limit;
         $this->offset = $offset;
         $this->orderBy = $orderBy;
+    }
+
+    /**
+     * Set the execute callback for query execution.
+     */
+    public function setExecuteCallback(\Closure $callback): self
+    {
+        $this->executeCallback = $callback;
+
+        return $this;
     }
 
     /**
@@ -376,14 +388,17 @@ class BasicWeaviateQueryBuilder implements QueryBuilderInterface
     /**
      * Execute the query and return matching bindings.
      *
-     * Phase 1: Not supported - requires Phase 2 client enhancements.
+     * Uses the v0.5.0 Weaviate client query API via the adapter's executeQuery method.
      */
     public function get(): array
     {
-        throw new \BadMethodCallException(
-            'Query execution requires Phase 2 client enhancements. ' .
-            'This feature will be available when the Zestic client supports query operations.'
-        );
+        if ($this->executeCallback === null) {
+            throw new \BadMethodCallException(
+                'Query execution callback not set. Use setExecuteCallback() to enable query execution.'
+            );
+        }
+
+        return ($this->executeCallback)($this);
     }
 
     /**

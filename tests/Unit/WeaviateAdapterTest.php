@@ -243,14 +243,36 @@ class WeaviateAdapterTest extends TestCase
     }
 
     /**
-     * Test finding bindings by entity throws exception (Phase 1 limitation).
+     * Test finding bindings by entity works with v0.5.0 API.
      */
-    public function testFindByEntityThrowsException(): void
+    public function testFindByEntityWorksWithV050Api(): void
     {
-        $this->expectException(\BadMethodCallException::class);
-        $this->expectExceptionMessage('findByEntity requires Phase 2 client enhancements');
+        // Mock the query chain for findByEntity
+        $mockQueryBuilder = $this->createMock(\Weaviate\Query\QueryBuilder::class);
+        $mockQueryBuilder->method('where')->willReturnSelf();
+        $mockQueryBuilder->method('returnProperties')->willReturnSelf();
+        $mockQueryBuilder->method('fetchObjects')->willReturn([
+            [
+                'bindingId' => 'test-binding-123',
+                'fromEntityType' => 'Workspace',
+                'fromEntityId' => 'workspace-123',
+                'toEntityType' => 'Project',
+                'toEntityId' => 'project-456',
+                'bindingType' => 'has_access',
+                'metadata' => '{"access_level":"write"}',
+                'createdAt' => '2024-01-01T00:00:00+00:00',
+                'updatedAt' => '2024-01-01T00:00:00+00:00',
+            ],
+        ]);
 
-        $this->adapter->findByEntity('Workspace', 'workspace-123');
+        $this->mockCollection->method('query')->willReturn($mockQueryBuilder);
+
+        $result = $this->adapter->findByEntity('Workspace', 'workspace-123');
+
+        $this->assertIsArray($result);
+        $this->assertCount(1, $result);
+        $this->assertInstanceOf(BindingInterface::class, $result[0]);
+        $this->assertEquals('test-binding-123', $result[0]->getId());
     }
 
     /**

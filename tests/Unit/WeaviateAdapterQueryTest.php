@@ -44,24 +44,47 @@ class WeaviateAdapterQueryTest extends TestCase
     }
 
     /**
-     * Test executeQuery throws exception (Phase 1 limitation).
+     * Test executeQuery works with v0.5.0 API.
      */
-    public function testExecuteQueryThrowsException(): void
+    public function testExecuteQueryWorksWithV050Api(): void
     {
-        $this->expectException(\BadMethodCallException::class);
-        $this->expectExceptionMessage('executeQuery requires Phase 2 client enhancements');
+        // Mock the query chain for executeQuery
+        $mockWeaviateQueryBuilder = $this->createMock(\Weaviate\Query\QueryBuilder::class);
+        $mockWeaviateQueryBuilder->method('where')->willReturnSelf();
+        $mockWeaviateQueryBuilder->method('limit')->willReturnSelf();
+        $mockWeaviateQueryBuilder->method('returnProperties')->willReturnSelf();
+        $mockWeaviateQueryBuilder->method('fetchObjects')->willReturn([]);
 
-        $this->adapter->executeQuery($this->mockQueryBuilder);
+        $mockCollection = $this->createMock(\Weaviate\Collections\Collection::class);
+        $mockCollection->method('query')->willReturn($mockWeaviateQueryBuilder);
+
+        $this->mockCollections->method('get')->willReturn($mockCollection);
+
+        $result = $this->adapter->executeQuery($this->mockQueryBuilder);
+
+        $this->assertIsArray($result);
     }
 
     /**
-     * Test count throws exception (Phase 1 limitation).
+     * Test count works with v0.5.0 API.
      */
-    public function testCountThrowsException(): void
+    public function testCountWorksWithV050Api(): void
     {
-        $this->expectException(\BadMethodCallException::class);
-        $this->expectExceptionMessage('count requires Phase 2 client enhancements');
+        // Mock the query chain for count (which uses executeQuery internally)
+        $mockWeaviateQueryBuilder = $this->createMock(\Weaviate\Query\QueryBuilder::class);
+        $mockWeaviateQueryBuilder->method('where')->willReturnSelf();
+        $mockWeaviateQueryBuilder->method('limit')->willReturnSelf();
+        $mockWeaviateQueryBuilder->method('returnProperties')->willReturnSelf();
+        $mockWeaviateQueryBuilder->method('fetchObjects')->willReturn([]);
 
-        $this->adapter->count($this->mockQueryBuilder);
+        $mockCollection = $this->createMock(\Weaviate\Collections\Collection::class);
+        $mockCollection->method('query')->willReturn($mockWeaviateQueryBuilder);
+
+        $this->mockCollections->method('get')->willReturn($mockCollection);
+
+        $result = $this->adapter->count($this->mockQueryBuilder);
+
+        $this->assertIsInt($result);
+        $this->assertEquals(0, $result);
     }
 }

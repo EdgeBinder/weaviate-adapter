@@ -4,10 +4,13 @@ parameters:
         - src
         - tests
     tmpDir: .phpstan.cache
-    checkMissingIterableValueType: false
-    checkGenericClassInNonGenericObjectType: false
     reportUnmatchedIgnoredErrors: false
     ignoreErrors:
+        # Ignore missing array and generic typehints (replacing deprecated config options)
+        -
+            identifier: missingType.iterableValue
+        -
+            identifier: missingType.generics
         # Allow mixed types in test fixtures and mocks
         - '#Parameter .* of method .*Test::.* has no value type specified in iterable type array#'
         - '#Method .*Test::.* has no return type specified#'

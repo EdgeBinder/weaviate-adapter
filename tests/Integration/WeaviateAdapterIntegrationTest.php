@@ -101,30 +101,134 @@ class WeaviateAdapterIntegrationTest extends TestCase
     }
 
     /**
-     * Test finding bindings by entity throws exception (Phase 1 limitation).
+     * Test finding bindings by entity works with v0.5.0 API.
      */
     public function testFindByEntity(): void
     {
-        $this->expectException(\BadMethodCallException::class);
-        $this->expectExceptionMessage('findByEntity requires Phase 2 client enhancements');
+        // Create a test binding first
+        $binding = $this->createTestBinding();
+        $this->adapter->store($binding);
 
-        $this->adapter->findByEntity('Workspace', 'workspace-123');
+        // Find bindings by the 'from' entity
+        $results = $this->adapter->findByEntity('Workspace', 'workspace-123');
+
+        $this->assertIsArray($results);
+        $this->assertCount(1, $results);
+        $this->assertEquals($binding->getId(), $results[0]->getId());
+
+        // Find bindings by the 'to' entity
+        $results = $this->adapter->findByEntity('Project', 'project-456');
+
+        $this->assertIsArray($results);
+        $this->assertCount(1, $results);
+        $this->assertEquals($binding->getId(), $results[0]->getId());
+
+        // Find bindings by non-existent entity
+        $results = $this->adapter->findByEntity('NonExistent', 'non-existent-123');
+
+        $this->assertIsArray($results);
+        $this->assertEmpty($results);
     }
 
     /**
-     * Test finding bindings between entities throws exception (Phase 1 limitation).
+     * Test finding bindings between entities works with v0.5.0 API.
      */
     public function testFindBetweenEntities(): void
     {
-        $this->expectException(\BadMethodCallException::class);
-        $this->expectExceptionMessage('findBetweenEntities requires Phase 2 client enhancements');
+        // Create a test binding first
+        $binding = $this->createTestBinding();
+        $this->adapter->store($binding);
 
-        $this->adapter->findBetweenEntities(
+        // Find bindings between the specific entities
+        $results = $this->adapter->findBetweenEntities(
             'Workspace',
             'workspace-123',
             'Project',
             'project-456'
         );
+
+        $this->assertIsArray($results);
+        $this->assertCount(1, $results);
+        $this->assertEquals($binding->getId(), $results[0]->getId());
+
+        // Find bindings between non-existent entities
+        $results = $this->adapter->findBetweenEntities(
+            'NonExistent',
+            'non-existent-123',
+            'AlsoNonExistent',
+            'also-non-existent-456'
+        );
+
+        $this->assertIsArray($results);
+        $this->assertEmpty($results);
+
+        // Find bindings with specific binding type
+        $results = $this->adapter->findBetweenEntities(
+            'Workspace',
+            'workspace-123',
+            'Project',
+            'project-456',
+            'has_access'
+        );
+
+        $this->assertIsArray($results);
+        $this->assertCount(1, $results);
+        $this->assertEquals($binding->getId(), $results[0]->getId());
+
+        // Find bindings with wrong binding type
+        $results = $this->adapter->findBetweenEntities(
+            'Workspace',
+            'workspace-123',
+            'Project',
+            'project-456',
+            'wrong_type'
+        );
+
+        $this->assertIsArray($results);
+        $this->assertEmpty($results);
+    }
+
+    /**
+     * Test count method works with v0.5.0 API.
+     */
+    public function testCount(): void
+    {
+        // Create multiple test bindings
+        $binding1 = $this->createTestBinding('binding-1', 'workspace-123', 'project-456', 'has_access');
+        $binding2 = $this->createTestBinding('binding-2', 'workspace-123', 'project-789', 'has_access');
+        $binding3 = $this->createTestBinding('binding-3', 'workspace-456', 'project-123', 'has_member');
+
+        $this->adapter->store($binding1);
+        $this->adapter->store($binding2);
+        $this->adapter->store($binding3);
+
+        // Test count with query builder
+        $queryBuilder = $this->adapter->query()
+            ->from('Workspace', 'workspace-123')
+            ->type('has_access');
+
+        $count = $this->adapter->count($queryBuilder);
+
+        $this->assertIsInt($count);
+        $this->assertEquals(2, $count); // Should find 2 bindings for workspace-123 with has_access type
+
+        // Test count with different criteria
+        $queryBuilder2 = $this->adapter->query()
+            ->type('has_member');
+
+        $count2 = $this->adapter->count($queryBuilder2);
+
+        $this->assertIsInt($count2);
+        $this->assertEquals(1, $count2); // Should find 1 binding with has_member type
+
+        // Test count with no matches
+        $queryBuilder3 = $this->adapter->query()
+            ->from('NonExistent', 'non-existent-123');
+
+        $count3 = $this->adapter->count($queryBuilder3);
+
+        $this->assertIsInt($count3);
+        $this->assertEquals(0, $count3); // Should find 0 bindings for non-existent entity
     }
 
     /**

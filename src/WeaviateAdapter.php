@@ -16,6 +16,7 @@ use EdgeBinder\Contracts\PersistenceAdapterInterface;
 use EdgeBinder\Contracts\QueryBuilderInterface;
 use EdgeBinder\Exception\EntityExtractionException;
 use EdgeBinder\Exception\InvalidMetadataException;
+use Weaviate\Query\Filter;
 use Weaviate\WeaviateClient;
 
 /**
@@ -153,16 +154,36 @@ class WeaviateAdapter implements PersistenceAdapterInterface
     /**
      * Find all bindings involving a specific entity.
      *
-     * Note: This is a Phase 1 implementation that doesn't support complex queries.
-     * For now, this method throws an exception indicating Phase 2 functionality is needed.
+     * Finds bindings where the entity appears as either the source or target.
      */
     public function findByEntity(string $entityType, string $entityId): array
     {
-        // Phase 1: Basic client doesn't support complex queries yet
-        throw new \BadMethodCallException(
-            'findByEntity requires Phase 2 client enhancements. ' .
-            'This feature will be available when the Zestic client supports query operations.'
-        );
+        try {
+            $collection = $this->client->collections()->get($this->collectionName);
+
+            // Create filter for entity as source OR target
+            $filter = Filter::anyOf([
+                Filter::allOf([
+                    Filter::byProperty('fromEntityType')->equal($entityType),
+                    Filter::byProperty('fromEntityId')->equal($entityId),
+                ]),
+                Filter::allOf([
+                    Filter::byProperty('toEntityType')->equal($entityType),
+                    Filter::byProperty('toEntityId')->equal($entityId),
+                ]),
+            ]);
+
+            // Execute the query
+            $results = $collection->query()
+                ->where($filter)
+                ->returnProperties(['bindingId', 'fromEntityType', 'fromEntityId', 'toEntityType', 'toEntityId', 'bindingType', 'metadata', 'createdAt', 'updatedAt'])
+                ->fetchObjects();
+
+            // Convert results back to EdgeBinder format
+            return $this->convertWeaviateResultsToBindings($results);
+        } catch (\Exception $e) {
+            throw WeaviateException::serverError('findByEntity', 'Find by entity failed: ' . $e->getMessage(), $e);
+        }
     }
 
     /**
@@ -368,7 +389,7 @@ class WeaviateAdapter implements PersistenceAdapterInterface
     /**
      * Find bindings between two specific entities.
      *
-     * Phase 1: Not supported yet - requires query functionality.
+     * Finds bindings that connect the specified source and target entities.
      */
     public function findBetweenEntities(
         string $fromType,
@@ -377,46 +398,103 @@ class WeaviateAdapter implements PersistenceAdapterInterface
         string $toId,
         ?string $bindingType = null
     ): array {
-        throw new \BadMethodCallException(
-            'findBetweenEntities requires Phase 2 client enhancements. ' .
-            'This feature will be available when the Zestic client supports query operations.'
-        );
+        try {
+            $collection = $this->client->collections()->get($this->collectionName);
+
+            // Create filter for specific from/to entities
+            $filters = [
+                Filter::byProperty('fromEntityType')->equal($fromType),
+                Filter::byProperty('fromEntityId')->equal($fromId),
+                Filter::byProperty('toEntityType')->equal($toType),
+                Filter::byProperty('toEntityId')->equal($toId),
+            ];
+
+            // Add binding type filter if specified
+            if ($bindingType !== null) {
+                $filters[] = Filter::byProperty('bindingType')->equal($bindingType);
+            }
+
+            $filter = Filter::allOf($filters);
+
+            // Execute the query
+            $results = $collection->query()
+                ->where($filter)
+                ->returnProperties(['bindingId', 'fromEntityType', 'fromEntityId', 'toEntityType', 'toEntityId', 'bindingType', 'metadata', 'createdAt', 'updatedAt'])
+                ->fetchObjects();
+
+            // Convert results back to EdgeBinder format
+            return $this->convertWeaviateResultsToBindings($results);
+        } catch (\Exception $e) {
+            throw WeaviateException::serverError('findBetweenEntities', 'Find between entities failed: ' . $e->getMessage(), $e);
+        }
     }
 
     /**
      * Create a new query builder instance.
      *
-     * Phase 1: Returns BasicWeaviateQueryBuilder with Phase 2 execution placeholders.
+     * Returns BasicWeaviateQueryBuilder with v0.5.0 execution capabilities.
      */
     public function query(): QueryBuilderInterface
     {
-        return new BasicWeaviateQueryBuilder($this->client, $this->collectionName);
+        $queryBuilder = new BasicWeaviateQueryBuilder($this->client, $this->collectionName);
+        $queryBuilder->setExecuteCallback(fn ($query) => $this->executeQuery($query));
+
+        return $queryBuilder;
     }
 
     /**
      * Execute a query and return matching bindings.
      *
-     * Phase 1: Not supported yet - requires query functionality.
+     * Uses the v0.5.0 Weaviate client query API to execute EdgeBinder queries.
      */
     public function executeQuery(QueryBuilderInterface $query): array
     {
-        throw new \BadMethodCallException(
-            'executeQuery requires Phase 2 client enhancements. ' .
-            'This feature will be available when the Zestic client supports query operations.'
-        );
+        try {
+            $collection = $this->client->collections()->get($this->collectionName);
+
+            // Convert EdgeBinder query to Weaviate v0.5.0 query
+            $weaviateFilter = $this->convertBindingQueryToWeaviateQuery($query);
+
+            // Build the query
+            $queryBuilder = $collection->query();
+
+            if ($weaviateFilter !== null) {
+                $queryBuilder = $queryBuilder->where($weaviateFilter);
+            }
+
+            // Apply limit if specified
+            if ($query instanceof BasicWeaviateQueryBuilder && $query->getLimit() !== null) {
+                $queryBuilder = $queryBuilder->limit($query->getLimit());
+            }
+
+            // Execute the query
+            $results = $queryBuilder
+                ->returnProperties(['bindingId', 'fromEntityType', 'fromEntityId', 'toEntityType', 'toEntityId', 'bindingType', 'metadata', 'createdAt', 'updatedAt'])
+                ->fetchObjects();
+
+            // Convert results back to EdgeBinder format
+            return $this->convertWeaviateResultsToBindings($results);
+        } catch (\Exception $e) {
+            throw WeaviateException::serverError('executeQuery', 'Query execution failed: ' . $e->getMessage(), $e);
+        }
     }
 
     /**
      * Count bindings matching a query.
      *
-     * Phase 1: Not supported yet - requires query functionality.
+     * Uses the v0.5.0 Weaviate client query API to count matching bindings.
      */
     public function count(QueryBuilderInterface $query): int
     {
-        throw new \BadMethodCallException(
-            'count requires Phase 2 client enhancements. ' .
-            'This feature will be available when the Zestic client supports query operations.'
-        );
+        try {
+            // For now, use executeQuery and count the results
+            // TODO: Implement proper aggregation API when available
+            $results = $this->executeQuery($query);
+
+            return count($results);
+        } catch (\Exception $e) {
+            throw WeaviateException::serverError('count', 'Count query failed: ' . $e->getMessage(), $e);
+        }
     }
 
     /**
@@ -430,5 +508,96 @@ class WeaviateAdapter implements PersistenceAdapterInterface
             'deleteByEntity requires Phase 2 client enhancements. ' .
             'This feature will be available when the Zestic client supports query operations.'
         );
+    }
+
+    /**
+     * Convert EdgeBinder BindingQueryBuilder to Weaviate v0.5.0 Filter.
+     */
+    protected function convertBindingQueryToWeaviateQuery(QueryBuilderInterface $queryBuilder): ?Filter
+    {
+        if (!$queryBuilder instanceof BasicWeaviateQueryBuilder) {
+            return null;
+        }
+
+        $filters = [];
+
+        // Add from entity filters
+        if ($queryBuilder->getFromEntityType() !== null && $queryBuilder->getFromEntityId() !== null) {
+            $filters[] = Filter::allOf([
+                Filter::byProperty('fromEntityType')->equal($queryBuilder->getFromEntityType()),
+                Filter::byProperty('fromEntityId')->equal($queryBuilder->getFromEntityId()),
+            ]);
+        }
+
+        // Add to entity filters
+        if ($queryBuilder->getToEntityType() !== null && $queryBuilder->getToEntityId() !== null) {
+            $filters[] = Filter::allOf([
+                Filter::byProperty('toEntityType')->equal($queryBuilder->getToEntityType()),
+                Filter::byProperty('toEntityId')->equal($queryBuilder->getToEntityId()),
+            ]);
+        }
+
+        // Add binding type filter
+        if ($queryBuilder->getBindingType() !== null) {
+            $filters[] = Filter::byProperty('bindingType')->equal($queryBuilder->getBindingType());
+        }
+
+        // Add where conditions
+        foreach ($queryBuilder->getWhereConditions() as $condition) {
+            if (isset($condition['property']) && isset($condition['value'])) {
+                $operator = $condition['operator'] ?? '=';
+
+                switch ($operator) {
+                    case '=':
+                        $filters[] = Filter::byProperty($condition['property'])->equal($condition['value']);
+                        break;
+                    case '!=':
+                        $filters[] = Filter::byProperty($condition['property'])->notEqual($condition['value']);
+                        break;
+                    case '>':
+                        $filters[] = Filter::byProperty($condition['property'])->greaterThan($condition['value']);
+                        break;
+                    case '<':
+                        $filters[] = Filter::byProperty($condition['property'])->lessThan($condition['value']);
+                        break;
+                    case 'LIKE':
+                        $filters[] = Filter::byProperty($condition['property'])->like($condition['value']);
+                        break;
+                    case 'IS NULL':
+                        $filters[] = Filter::byProperty($condition['property'])->isNull(true);
+                        break;
+                    case 'IS NOT NULL':
+                        $filters[] = Filter::byProperty($condition['property'])->isNull(false);
+                        break;
+                }
+            }
+        }
+
+        // Return combined filter or null if no filters
+        if (empty($filters)) {
+            return null;
+        }
+
+        return count($filters) === 1 ? $filters[0] : Filter::allOf($filters);
+    }
+
+    /**
+     * Convert Weaviate v0.5.0 results to EdgeBinder Binding format.
+     */
+    protected function convertWeaviateResultsToBindings(array $results): array
+    {
+        $bindings = [];
+
+        foreach ($results as $result) {
+            try {
+                $binding = $this->bindingMapper->fromWeaviateObject($result);
+                $bindings[] = $binding;
+            } catch (\Exception $e) {
+                // Log error but continue processing other results
+                error_log('Failed to convert Weaviate result to binding: ' . $e->getMessage());
+            }
+        }
+
+        return $bindings;
     }
 }
