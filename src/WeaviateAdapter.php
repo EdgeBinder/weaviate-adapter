@@ -544,30 +544,42 @@ class WeaviateAdapter implements PersistenceAdapterInterface
 
         // Add where conditions
         foreach ($queryBuilder->getWhereConditions() as $condition) {
-            if (isset($condition['property']) && isset($condition['value'])) {
+            $field = $condition['field'] ?? $condition['property'] ?? null;
+            if ($field && isset($condition['value'])) {
                 $operator = $condition['operator'] ?? '=';
 
                 switch ($operator) {
                     case '=':
-                        $filters[] = Filter::byProperty($condition['property'])->equal($condition['value']);
+                        $filters[] = Filter::byProperty($field)->equal($condition['value']);
                         break;
                     case '!=':
-                        $filters[] = Filter::byProperty($condition['property'])->notEqual($condition['value']);
+                        $filters[] = Filter::byProperty($field)->notEqual($condition['value']);
                         break;
                     case '>':
-                        $filters[] = Filter::byProperty($condition['property'])->greaterThan($condition['value']);
+                        $filters[] = Filter::byProperty($field)->greaterThan($condition['value']);
                         break;
                     case '<':
-                        $filters[] = Filter::byProperty($condition['property'])->lessThan($condition['value']);
+                        $filters[] = Filter::byProperty($field)->lessThan($condition['value']);
                         break;
                     case 'LIKE':
-                        $filters[] = Filter::byProperty($condition['property'])->like($condition['value']);
+                        $filters[] = Filter::byProperty($field)->like($condition['value']);
                         break;
-                    case 'IS NULL':
-                        $filters[] = Filter::byProperty($condition['property'])->isNull(true);
+                    case 'IS_NULL':
+                        $filters[] = Filter::byProperty($field)->isNull(true);
                         break;
                     case 'IS NOT NULL':
-                        $filters[] = Filter::byProperty($condition['property'])->isNull(false);
+                        $filters[] = Filter::byProperty($field)->isNull(false);
+                        break;
+                }
+            } elseif ($field && isset($condition['operator'])) {
+                // Handle operators that don't need a value (like IS_NULL)
+                $operator = $condition['operator'];
+                switch ($operator) {
+                    case 'IS_NULL':
+                        $filters[] = Filter::byProperty($field)->isNull(true);
+                        break;
+                    case 'EXISTS':
+                        $filters[] = Filter::byProperty($field)->isNull(false);
                         break;
                 }
             }

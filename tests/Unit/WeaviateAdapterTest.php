@@ -8,6 +8,9 @@ use EdgeBinder\Adapter\Weaviate\Exception\WeaviateException;
 use EdgeBinder\Adapter\Weaviate\WeaviateAdapter;
 use EdgeBinder\Binding;
 use EdgeBinder\Contracts\BindingInterface;
+use EdgeBinder\Contracts\EntityInterface;
+use EdgeBinder\Exception\EntityExtractionException;
+use EdgeBinder\Exception\InvalidMetadataException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Weaviate\Collections\Collection;
@@ -273,6 +276,353 @@ class WeaviateAdapterTest extends TestCase
         $this->assertCount(1, $result);
         $this->assertInstanceOf(BindingInterface::class, $result[0]);
         $this->assertEquals('test-binding-123', $result[0]->getId());
+    }
+
+    /**
+     * Test store failure when result is falsy.
+     */
+    public function testStoreBindingFailsWhenResultIsFalsy(): void
+    {
+        $binding = $this->createTestBinding();
+
+        $this->mockData
+            ->expects($this->once())
+            ->method('create')
+            ->willReturn([]); // Empty array is falsy
+
+        $this->expectException(WeaviateException::class);
+        $this->expectExceptionMessage('Failed to store binding');
+
+        $this->adapter->store($binding);
+    }
+
+    /**
+     * Test store re-throws WeaviateException.
+     */
+    public function testStoreBindingRethrowsWeaviateException(): void
+    {
+        $binding = $this->createTestBinding();
+        $originalException = WeaviateException::clientError('test', 'Original error');
+
+        $this->mockData
+            ->expects($this->once())
+            ->method('create')
+            ->willThrowException($originalException);
+
+        $this->expectException(WeaviateException::class);
+        $this->expectExceptionMessage('Original error');
+
+        $this->adapter->store($binding);
+    }
+
+    /**
+     * Test find throws server error for non-404 exceptions.
+     */
+    public function testFindBindingServerError(): void
+    {
+        $bindingId = 'test-binding-123';
+
+        $this->mockData
+            ->expects($this->once())
+            ->method('get')
+            ->willThrowException(new \Exception('Server error'));
+
+        $this->expectException(WeaviateException::class);
+        $this->expectExceptionMessage('Find operation failed');
+
+        $this->adapter->find($bindingId);
+    }
+
+    /**
+     * Test delete re-throws WeaviateException.
+     */
+    public function testDeleteBindingRethrowsWeaviateException(): void
+    {
+        $bindingId = 'test-binding-123';
+        $originalException = WeaviateException::clientError('test', 'Original error');
+
+        $this->mockData
+            ->expects($this->once())
+            ->method('delete')
+            ->willThrowException($originalException);
+
+        $this->expectException(WeaviateException::class);
+        $this->expectExceptionMessage('Original error');
+
+        $this->adapter->delete($bindingId);
+    }
+
+    /**
+     * Test delete throws server error for other exceptions.
+     */
+    public function testDeleteBindingServerError(): void
+    {
+        $bindingId = 'test-binding-123';
+
+        $this->mockData
+            ->expects($this->once())
+            ->method('delete')
+            ->willThrowException(new \Exception('Server error'));
+
+        $this->expectException(WeaviateException::class);
+        $this->expectExceptionMessage('Delete operation failed');
+
+        $this->adapter->delete($bindingId);
+    }
+
+    /**
+     * Test updateMetadata re-throws InvalidMetadataException.
+     */
+    public function testUpdateMetadataRethrowsInvalidMetadataException(): void
+    {
+        $bindingId = 'test-binding-123';
+        $invalidMetadata = ['resource' => fopen('php://memory', 'r')]; // Invalid resource type
+
+        $this->expectException(\EdgeBinder\Exception\InvalidMetadataException::class);
+        $this->expectExceptionMessage('Invalid metadata type \'resource\'');
+
+        $this->adapter->updateMetadata($bindingId, $invalidMetadata);
+    }
+
+    /**
+     * Test updateMetadata re-throws WeaviateException.
+     */
+    public function testUpdateMetadataRethrowsWeaviateException(): void
+    {
+        $bindingId = 'test-binding-123';
+        $metadata = ['access_level' => 'read'];
+        $originalException = WeaviateException::clientError('test', 'Original error');
+
+        $this->mockData
+            ->expects($this->once())
+            ->method('update')
+            ->willThrowException($originalException);
+
+        $this->expectException(WeaviateException::class);
+        $this->expectExceptionMessage('Original error');
+
+        $this->adapter->updateMetadata($bindingId, $metadata);
+    }
+
+    /**
+     * Test updateMetadata throws server error for other exceptions.
+     */
+    public function testUpdateMetadataServerError(): void
+    {
+        $bindingId = 'test-binding-123';
+        $metadata = ['access_level' => 'read'];
+
+        $this->mockData
+            ->expects($this->once())
+            ->method('update')
+            ->willThrowException(new \Exception('Server error'));
+
+        $this->expectException(WeaviateException::class);
+        $this->expectExceptionMessage('Metadata update failed');
+
+        $this->adapter->updateMetadata($bindingId, $metadata);
+    }
+
+    /**
+     * Test extractEntityId with EntityInterface.
+     */
+    public function testExtractEntityIdWithEntityInterface(): void
+    {
+        $entity = $this->createMock(EntityInterface::class);
+        $entity->method('getId')->willReturn('entity-123');
+
+        $result = $this->adapter->extractEntityId($entity);
+
+        $this->assertEquals('entity-123', $result);
+    }
+
+    /**
+     * Test extractEntityId with getId method.
+     */
+    public function testExtractEntityIdWithGetIdMethod(): void
+    {
+        $entity = new class {
+            public function getId(): string
+            {
+                return 'entity-456';
+            }
+        };
+
+        $result = $this->adapter->extractEntityId($entity);
+
+        $this->assertEquals('entity-456', $result);
+    }
+
+    /**
+     * Test extractEntityId with id property.
+     */
+    public function testExtractEntityIdWithIdProperty(): void
+    {
+        $entity = new class {
+            public string $id = 'entity-789';
+        };
+
+        $result = $this->adapter->extractEntityId($entity);
+
+        $this->assertEquals('entity-789', $result);
+    }
+
+    /**
+     * Test extractEntityId throws exception when no ID available.
+     */
+    public function testExtractEntityIdThrowsException(): void
+    {
+        $entity = new class {
+            // No getId method or id property
+        };
+
+        $this->expectException(EntityExtractionException::class);
+        $this->expectExceptionMessage('Cannot extract entity ID');
+
+        $this->adapter->extractEntityId($entity);
+    }
+
+    /**
+     * Test extractEntityType with EntityInterface.
+     */
+    public function testExtractEntityTypeWithEntityInterface(): void
+    {
+        $entity = $this->createMock(EntityInterface::class);
+        $entity->method('getType')->willReturn('Workspace');
+
+        $result = $this->adapter->extractEntityType($entity);
+
+        $this->assertEquals('Workspace', $result);
+    }
+
+    /**
+     * Test extractEntityType with getType method.
+     */
+    public function testExtractEntityTypeWithGetTypeMethod(): void
+    {
+        $entity = new class {
+            public function getType(): string
+            {
+                return 'Project';
+            }
+        };
+
+        $result = $this->adapter->extractEntityType($entity);
+
+        $this->assertEquals('Project', $result);
+    }
+
+    /**
+     * Test extractEntityType falls back to class name.
+     */
+    public function testExtractEntityTypeFallsBackToClassName(): void
+    {
+        $entity = new class {
+            // No getType method
+        };
+
+        $result = $this->adapter->extractEntityType($entity);
+
+        // The result should be the basename of the class name
+        $this->assertIsString($result);
+        $this->assertNotEmpty($result);
+    }
+
+    /**
+     * Test validateAndNormalizeMetadata with valid metadata.
+     */
+    public function testValidateAndNormalizeMetadataValid(): void
+    {
+        $metadata = [
+            'access_level' => 'write',
+            'created_by' => 'admin',
+            'tags' => ['important', 'project'],
+            'created_at' => new \DateTimeImmutable(),
+        ];
+
+        $result = $this->adapter->validateAndNormalizeMetadata($metadata);
+
+        $this->assertEquals($metadata, $result);
+    }
+
+    /**
+     * Test validateAndNormalizeMetadata throws exception for resource type.
+     */
+    public function testValidateAndNormalizeMetadataThrowsForResource(): void
+    {
+        $metadata = ['file' => fopen('php://memory', 'r')];
+
+        $this->expectException(InvalidMetadataException::class);
+        $this->expectExceptionMessage('Invalid metadata type \'resource\'');
+
+        $this->adapter->validateAndNormalizeMetadata($metadata);
+    }
+
+    /**
+     * Test validateAndNormalizeMetadata throws exception for invalid object.
+     */
+    public function testValidateAndNormalizeMetadataThrowsForInvalidObject(): void
+    {
+        $metadata = ['object' => new \stdClass()];
+
+        $this->expectException(InvalidMetadataException::class);
+        $this->expectExceptionMessage('Invalid metadata type \'object\'');
+
+        $this->adapter->validateAndNormalizeMetadata($metadata);
+    }
+
+    /**
+     * Test validateAndNormalizeMetadata throws exception for size limit.
+     */
+    public function testValidateAndNormalizeMetadataThrowsForSizeLimit(): void
+    {
+        // Create metadata that exceeds 64KB limit
+        $largeString = str_repeat('x', 65536);
+        $metadata = ['large_data' => $largeString];
+
+        $this->expectException(InvalidMetadataException::class);
+        $this->expectExceptionMessage('Metadata size');
+
+        $this->adapter->validateAndNormalizeMetadata($metadata);
+    }
+
+    /**
+     * Test validateAndNormalizeMetadata with nested arrays.
+     */
+    public function testValidateAndNormalizeMetadataWithNestedArrays(): void
+    {
+        $metadata = [
+            'config' => [
+                'database' => [
+                    'host' => 'localhost',
+                    'port' => 5432,
+                ],
+                'cache' => [
+                    'ttl' => 3600,
+                ],
+            ],
+        ];
+
+        $result = $this->adapter->validateAndNormalizeMetadata($metadata);
+
+        $this->assertEquals($metadata, $result);
+    }
+
+    /**
+     * Test validateAndNormalizeMetadata throws for nested invalid types.
+     */
+    public function testValidateAndNormalizeMetadataThrowsForNestedInvalidTypes(): void
+    {
+        $metadata = [
+            'config' => [
+                'invalid' => fopen('php://memory', 'r'),
+            ],
+        ];
+
+        $this->expectException(InvalidMetadataException::class);
+        $this->expectExceptionMessage('Invalid metadata type \'resource\' at path: config.invalid');
+
+        $this->adapter->validateAndNormalizeMetadata($metadata);
     }
 
     /**
