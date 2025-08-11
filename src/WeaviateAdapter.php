@@ -8,6 +8,7 @@ use EdgeBinder\Adapter\Weaviate\Exception\SchemaException;
 use EdgeBinder\Adapter\Weaviate\Exception\WeaviateException;
 use EdgeBinder\Adapter\Weaviate\Mapping\BindingMapper;
 use EdgeBinder\Adapter\Weaviate\Mapping\MetadataMapper;
+use EdgeBinder\Adapter\Weaviate\Query\QueryResult;
 use EdgeBinder\Binding;
 use EdgeBinder\Contracts\BindingInterface;
 use EdgeBinder\Contracts\EntityInterface;
@@ -17,7 +18,6 @@ use EdgeBinder\Exception\BindingNotFoundException;
 use EdgeBinder\Exception\EntityExtractionException;
 use EdgeBinder\Exception\InvalidMetadataException;
 use EdgeBinder\Query\QueryCriteria;
-use EdgeBinder\Adapter\Weaviate\Query\QueryResult;
 use Weaviate\Query\Filter;
 use Weaviate\WeaviateClient;
 

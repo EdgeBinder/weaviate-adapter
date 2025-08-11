@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace EdgeBinder\Adapter\Weaviate\Tests\Unit\Query;
 
+use EdgeBinder\Adapter\Weaviate\Query\QueryResult;
 use EdgeBinder\Contracts\BindingInterface;
 use EdgeBinder\Contracts\QueryResultInterface;
-use EdgeBinder\Adapter\Weaviate\Query\QueryResult;
 use PHPUnit\Framework\TestCase;
 
 /**
