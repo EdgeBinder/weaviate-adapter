@@ -66,7 +66,8 @@ class MetadataMapper
                 throw new \JsonException('Decoded JSON is not an array');
             }
 
-            return $metadata;
+            // Process the deserialized metadata to restore DateTime objects
+            return $this->processForDeserialization($metadata);
         } catch (\JsonException $e) {
             throw new WeaviateException(
                 operation: 'deserialize_metadata',
@@ -113,5 +114,61 @@ class MetadataMapper
 
         // Return other values as-is (strings, numbers, booleans, null)
         return $value;
+    }
+
+    /**
+     * Process metadata for deserialization, converting special types back.
+     *
+     * @param array<string, mixed> $metadata The metadata to process
+     * @return array<string, mixed> Processed metadata
+     */
+    private function processForDeserialization(array $metadata): array
+    {
+        $processed = [];
+
+        foreach ($metadata as $key => $value) {
+            $processed[$key] = $this->processValueForDeserialization($value);
+        }
+
+        return $processed;
+    }
+
+    /**
+     * Process a single value for deserialization.
+     *
+     * @param mixed $value The value to process
+     * @return mixed Processed value
+     */
+    private function processValueForDeserialization(mixed $value): mixed
+    {
+        if (is_string($value) && $this->isIso8601DateTime($value)) {
+            // Convert ISO 8601 strings back to DateTimeImmutable objects
+            try {
+                return new \DateTimeImmutable($value);
+            } catch (\Exception $e) {
+                // If parsing fails, return the original string
+                return $value;
+            }
+        }
+
+        if (is_array($value)) {
+            // Recursively process arrays
+            return $this->processForDeserialization($value);
+        }
+
+        // Return other values as-is (numbers, booleans, null)
+        return $value;
+    }
+
+    /**
+     * Check if a string looks like an ISO 8601 datetime.
+     *
+     * @param string $value The string to check
+     * @return bool True if it looks like an ISO 8601 datetime
+     */
+    private function isIso8601DateTime(string $value): bool
+    {
+        // Check for ISO 8601 format: YYYY-MM-DDTHH:MM:SS+TZ or similar
+        return (bool) preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}([+-]\d{2}:\d{2}|Z)$/', $value);
     }
 }

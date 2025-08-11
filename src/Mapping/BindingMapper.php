@@ -91,4 +91,14 @@ class BindingMapper
             return new \DateTimeImmutable();
         }
     }
+
+    /**
+     * Get the metadata mapper instance.
+     *
+     * @return MetadataMapper The metadata mapper
+     */
+    public function getMetadataMapper(): MetadataMapper
+    {
+        return $this->metadataMapper;
+    }
 }

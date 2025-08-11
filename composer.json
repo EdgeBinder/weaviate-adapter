@@ -27,7 +27,7 @@
     },
     "require": {
         "php": "^8.3",
-        "edgebinder/edgebinder": ">=0.4.0 <1.0",
+        "edgebinder/edgebinder": ">=0.5.0 <1.0",
         "psr/log": "^3.0",
         "zestic/weaviate-php-client": ">=0.5.0 <1.0"
     },
@@ -41,12 +41,6 @@
         "phpunit/phpunit": "^11.0",
         "squizlabs/php_codesniffer": "^3.7"
     },
-    "repositories": [
-        {
-            "type": "git",
-            "url": "git@github.com:EdgeBinder/edgebinder.git"
-        }
-    ],
     "minimum-stability": "stable",
     "prefer-stable": true,
     "autoload": {

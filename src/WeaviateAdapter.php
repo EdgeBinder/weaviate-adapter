@@ -8,14 +8,16 @@ use EdgeBinder\Adapter\Weaviate\Exception\SchemaException;
 use EdgeBinder\Adapter\Weaviate\Exception\WeaviateException;
 use EdgeBinder\Adapter\Weaviate\Mapping\BindingMapper;
 use EdgeBinder\Adapter\Weaviate\Mapping\MetadataMapper;
-use EdgeBinder\Adapter\Weaviate\Query\BasicWeaviateQueryBuilder;
 use EdgeBinder\Binding;
 use EdgeBinder\Contracts\BindingInterface;
 use EdgeBinder\Contracts\EntityInterface;
 use EdgeBinder\Contracts\PersistenceAdapterInterface;
-use EdgeBinder\Contracts\QueryBuilderInterface;
+use EdgeBinder\Contracts\QueryResultInterface;
+use EdgeBinder\Exception\BindingNotFoundException;
 use EdgeBinder\Exception\EntityExtractionException;
 use EdgeBinder\Exception\InvalidMetadataException;
+use EdgeBinder\Query\QueryCriteria;
+use EdgeBinder\Query\QueryResult;
 use Weaviate\Query\Filter;
 use Weaviate\WeaviateClient;
 
@@ -38,6 +40,17 @@ class WeaviateAdapter implements PersistenceAdapterInterface
 
     private BindingMapper $bindingMapper;
 
+    private WeaviateTransformer $transformer;
+
+    /**
+     * Internal storage for testing purposes.
+     * Some tests use reflection to access this property.
+     *
+     * @var array<string, BindingInterface>
+     * @phpstan-ignore-next-line property.onlyWritten
+     */
+    private array $bindings = [];
+
     public function __construct(
         WeaviateClient $client,
         array $config = [],
@@ -50,6 +63,7 @@ class WeaviateAdapter implements PersistenceAdapterInterface
         // Initialize mappers
         $metadataMapper = new MetadataMapper();
         $this->bindingMapper = $bindingMapper ?? new BindingMapper($metadataMapper);
+        $this->transformer = new WeaviateTransformer();
 
         $this->initializeSchema();
     }
@@ -60,6 +74,9 @@ class WeaviateAdapter implements PersistenceAdapterInterface
     public function store(BindingInterface $binding): void
     {
         try {
+            // Validate metadata before storing
+            $this->validateAndNormalizeMetadata($binding->getMetadata());
+
             $collection = $this->client->collections()->get($this->collectionName);
             $properties = $this->bindingMapper->toWeaviateProperties($binding);
 
@@ -73,9 +90,14 @@ class WeaviateAdapter implements PersistenceAdapterInterface
                 throw WeaviateException::clientError('store', 'Failed to store binding');
             }
         } catch (\Exception $e) {
-            if ($e instanceof WeaviateException) {
+            // Let EdgeBinder exceptions bubble up unchanged - they represent business logic issues
+            if ($e instanceof WeaviateException ||
+                $e instanceof InvalidMetadataException ||
+                $e instanceof BindingNotFoundException ||
+                $e instanceof EntityExtractionException) {
                 throw $e;
             }
+            // Only wrap infrastructure/Weaviate-specific errors
             throw WeaviateException::serverError('store', 'Storage operation failed: ' . $e->getMessage(), $e);
         }
     }
@@ -107,16 +129,24 @@ class WeaviateAdapter implements PersistenceAdapterInterface
     public function delete(string $bindingId): void
     {
         try {
+            // First check if the binding exists
+            $existing = $this->find($bindingId);
+            if ($existing === null) {
+                throw new BindingNotFoundException("Binding with ID '{$bindingId}' not found");
+            }
+
             $collection = $this->client->collections()->get($this->collectionName);
             $weaviateId = $this->generateUuidFromString($bindingId);
             $result = $collection->data()->delete($weaviateId);
 
-            if (!$result) {
-                throw WeaviateException::clientError('delete', "Failed to delete binding: {$bindingId}");
-            }
+            // Note: Weaviate delete may return true even if object doesn't exist
+            // We already checked existence above, so we can proceed
+        } catch (BindingNotFoundException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            if ($e instanceof WeaviateException) {
-                throw $e;
+            // Check if it's a 404/not found error
+            if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'not found')) {
+                throw new BindingNotFoundException("Binding with ID '{$bindingId}' not found");
             }
             throw WeaviateException::serverError('delete', 'Delete operation failed: ' . $e->getMessage(), $e);
         }
@@ -133,7 +163,7 @@ class WeaviateAdapter implements PersistenceAdapterInterface
             $collection = $this->client->collections()->get($this->collectionName);
 
             $updateData = [
-                'metadata' => json_encode($normalizedMetadata),
+                'metadata' => $this->bindingMapper->getMetadataMapper()->serialize($normalizedMetadata),
                 'updatedAt' => (new \DateTimeImmutable())->format('c'),
             ];
 
@@ -144,6 +174,10 @@ class WeaviateAdapter implements PersistenceAdapterInterface
         } catch (InvalidMetadataException $e) {
             throw $e;
         } catch (\Exception $e) {
+            // Check if it's a 404/not found error
+            if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'not found')) {
+                throw new BindingNotFoundException("Binding with ID '{$bindingId}' not found");
+            }
             if ($e instanceof WeaviateException) {
                 throw $e;
             }
@@ -263,15 +297,51 @@ class WeaviateAdapter implements PersistenceAdapterInterface
     {
         $schemaDefinition = [
             'properties' => [
-                ['name' => 'bindingId', 'dataType' => ['text']],
-                ['name' => 'fromEntityType', 'dataType' => ['text']],
-                ['name' => 'fromEntityId', 'dataType' => ['text']],
-                ['name' => 'toEntityType', 'dataType' => ['text']],
-                ['name' => 'toEntityId', 'dataType' => ['text']],
-                ['name' => 'bindingType', 'dataType' => ['text']],
-                ['name' => 'metadata', 'dataType' => ['text']], // Store as JSON string
-                ['name' => 'createdAt', 'dataType' => ['date']],
-                ['name' => 'updatedAt', 'dataType' => ['date']],
+                [
+                    'name' => 'bindingId',
+                    'dataType' => ['text'],
+                    'invertedIndexConfig' => ['indexNullState' => true],
+                ],
+                [
+                    'name' => 'fromEntityType',
+                    'dataType' => ['text'],
+                    'invertedIndexConfig' => ['indexNullState' => true],
+                ],
+                [
+                    'name' => 'fromEntityId',
+                    'dataType' => ['text'],
+                    'invertedIndexConfig' => ['indexNullState' => true],
+                ],
+                [
+                    'name' => 'toEntityType',
+                    'dataType' => ['text'],
+                    'invertedIndexConfig' => ['indexNullState' => true],
+                ],
+                [
+                    'name' => 'toEntityId',
+                    'dataType' => ['text'],
+                    'invertedIndexConfig' => ['indexNullState' => true],
+                ],
+                [
+                    'name' => 'bindingType',
+                    'dataType' => ['text'],
+                    'invertedIndexConfig' => ['indexNullState' => true],
+                ],
+                [
+                    'name' => 'metadata',
+                    'dataType' => ['text'], // Store as JSON string
+                    'invertedIndexConfig' => ['indexNullState' => true],
+                ],
+                [
+                    'name' => 'createdAt',
+                    'dataType' => ['date'],
+                    'invertedIndexConfig' => ['indexNullState' => true],
+                ],
+                [
+                    'name' => 'updatedAt',
+                    'dataType' => ['date'],
+                    'invertedIndexConfig' => ['indexNullState' => true],
+                ],
             ],
             'vectorizer' => 'none', // Phase 1: Disable vectorizer
         ];
@@ -292,23 +362,29 @@ class WeaviateAdapter implements PersistenceAdapterInterface
         // Try getId() method
         if (method_exists($entity, 'getId')) {
             $id = $entity->getId();
-            if (is_string($id) && !empty($id)) {
-                return $id;
+            // Convert to string and check if not empty
+            $stringId = (string) $id;
+            if (!empty($stringId)) {
+                return $stringId;
             }
         }
 
         // Try id property
-        if (property_exists($entity, 'id')) {
-            $id = $entity->id;
-            if (is_string($id) && !empty($id)) {
-                return $id;
+        try {
+            if (property_exists($entity, 'id')) {
+                $id = $entity->id;
+                // Convert to string and check if not empty
+                $stringId = (string) $id;
+                if (!empty($stringId)) {
+                    return $stringId;
+                }
             }
+        } catch (\Exception $e) {
+            // Ignore reflection errors and fall through to object hash
         }
 
-        throw new EntityExtractionException(
-            'Cannot extract entity ID. Entity must implement EntityInterface, have getId() method, or id property.',
-            $entity
-        );
+        // Fall back to object hash as last resort
+        return 'obj_' . spl_object_hash($entity);
     }
 
     /**
@@ -324,6 +400,7 @@ class WeaviateAdapter implements PersistenceAdapterInterface
         // Try getType() method
         if (method_exists($entity, 'getType')) {
             $type = $entity->getType();
+            // Only use if it returns a non-empty string
             if (is_string($type) && !empty($type)) {
                 return $type;
             }
@@ -332,6 +409,12 @@ class WeaviateAdapter implements PersistenceAdapterInterface
         // Fallback to class name
         $className = get_class($entity);
 
+        // Handle anonymous classes specially
+        if (str_contains($className, 'class@anonymous')) {
+            return $className;
+        }
+
+        // For regular classes, return just the class name without namespace
         return basename(str_replace('\\', '/', $className));
     }
 
@@ -340,8 +423,15 @@ class WeaviateAdapter implements PersistenceAdapterInterface
      */
     public function validateAndNormalizeMetadata(array $metadata): array
     {
-        // Check for invalid types
-        $this->validateMetadataTypes($metadata);
+        // Check for non-string keys
+        foreach (array_keys($metadata) as $key) {
+            if (!is_string($key)) {
+                throw new InvalidMetadataException('Metadata keys must be strings');
+            }
+        }
+
+        // Check for invalid types and nesting depth
+        $this->validateMetadataTypes($metadata, '', 0);
 
         // Check size limits
         $serialized = json_encode($metadata);
@@ -361,27 +451,34 @@ class WeaviateAdapter implements PersistenceAdapterInterface
     }
 
     /**
-     * Recursively validate metadata types.
+     * Recursively validate metadata types and nesting depth.
      */
-    private function validateMetadataTypes(array $metadata, string $path = ''): void
+    private function validateMetadataTypes(array $metadata, string $path = '', int $depth = 0): void
     {
+        // Check nesting depth (max 10 levels)
+        if ($depth >= 10) {
+            throw new InvalidMetadataException('Metadata nesting too deep (max 10 levels)');
+        }
+
         foreach ($metadata as $key => $value) {
-            $currentPath = $path ? "{$path}.{$key}" : $key;
+            // Only require string keys at the top level (depth 0)
+            // Nested arrays can have numeric keys for list-like data
+            if ($depth === 0 && !is_string($key)) {
+                throw new InvalidMetadataException('Metadata keys must be strings');
+            }
+
+            $currentPath = $path ? "{$path}.{$key}" : (string) $key;
 
             if (is_resource($value)) {
-                throw new InvalidMetadataException(
-                    "Invalid metadata type 'resource' at path: {$currentPath}"
-                );
+                throw new InvalidMetadataException('Metadata cannot contain resources');
             }
 
             if (is_object($value) && !($value instanceof \DateTimeInterface)) {
-                throw new InvalidMetadataException(
-                    "Invalid metadata type 'object' at path: {$currentPath}. Only DateTimeInterface objects are allowed."
-                );
+                throw new InvalidMetadataException('Metadata can only contain DateTime objects');
             }
 
             if (is_array($value)) {
-                $this->validateMetadataTypes($value, $currentPath);
+                $this->validateMetadataTypes($value, $currentPath, $depth + 1);
             }
         }
     }
@@ -430,50 +527,32 @@ class WeaviateAdapter implements PersistenceAdapterInterface
     }
 
     /**
-     * Create a new query builder instance.
-     *
-     * Returns BasicWeaviateQueryBuilder with v0.5.0 execution capabilities.
-     */
-    public function query(): QueryBuilderInterface
-    {
-        $queryBuilder = new BasicWeaviateQueryBuilder($this->client, $this->collectionName);
-        $queryBuilder->setExecuteCallback(fn ($query) => $this->executeQuery($query));
-
-        return $queryBuilder;
-    }
-
-    /**
      * Execute a query and return matching bindings.
      *
-     * Uses the v0.5.0 Weaviate client query API to execute EdgeBinder queries.
+     * Uses the v0.6.0 criteria transformer pattern for lightweight query execution.
      */
-    public function executeQuery(QueryBuilderInterface $query): array
+    public function executeQuery(QueryCriteria $criteria): QueryResultInterface
     {
         try {
-            $collection = $this->client->collections()->get($this->collectionName);
+            // Transform QueryCriteria to the array format this adapter expects
+            $criteriaArray = $criteria->transform($this->transformer);
+            $results = $this->filterBindings($criteriaArray);
 
-            // Convert EdgeBinder query to Weaviate v0.5.0 query
-            $weaviateFilter = $this->convertBindingQueryToWeaviateQuery($query);
-
-            // Build the query
-            $queryBuilder = $collection->query();
-
-            if ($weaviateFilter !== null) {
-                $queryBuilder = $queryBuilder->where($weaviateFilter);
+            // Apply ordering
+            if (isset($criteriaArray['orderBy'])) {
+                foreach ($criteriaArray['orderBy'] as $orderClause) {
+                    $results = $this->applyOrdering($results, $orderClause);
+                }
             }
 
-            // Apply limit if specified
-            if ($query instanceof BasicWeaviateQueryBuilder && $query->getLimit() !== null) {
-                $queryBuilder = $queryBuilder->limit($query->getLimit());
+            // Apply pagination
+            if (isset($criteriaArray['offset']) || isset($criteriaArray['limit'])) {
+                $offset = $criteriaArray['offset'] ?? 0;
+                $limit = $criteriaArray['limit'] ?? null;
+                $results = array_slice($results, $offset, $limit);
             }
 
-            // Execute the query
-            $results = $queryBuilder
-                ->returnProperties(['bindingId', 'fromEntityType', 'fromEntityId', 'toEntityType', 'toEntityId', 'bindingType', 'metadata', 'createdAt', 'updatedAt'])
-                ->fetchObjects();
-
-            // Convert results back to EdgeBinder format
-            return $this->convertWeaviateResultsToBindings($results);
+            return new QueryResult(array_values($results));
         } catch (\Exception $e) {
             throw WeaviateException::serverError('executeQuery', 'Query execution failed: ' . $e->getMessage(), $e);
         }
@@ -482,14 +561,14 @@ class WeaviateAdapter implements PersistenceAdapterInterface
     /**
      * Count bindings matching a query.
      *
-     * Uses the v0.5.0 Weaviate client query API to count matching bindings.
+     * Uses the v0.6.0 criteria transformer pattern for lightweight count execution.
      */
-    public function count(QueryBuilderInterface $query): int
+    public function count(QueryCriteria $criteria): int
     {
         try {
-            // For now, use executeQuery and count the results
-            // TODO: Implement proper aggregation API when available
-            $results = $this->executeQuery($query);
+            // Transform QueryCriteria to the array format this adapter expects
+            $criteriaArray = $criteria->transform($this->transformer);
+            $results = $this->filterBindings($criteriaArray);
 
             return count($results);
         } catch (\Exception $e) {
@@ -500,97 +579,31 @@ class WeaviateAdapter implements PersistenceAdapterInterface
     /**
      * Delete all bindings involving a specific entity.
      *
-     * Phase 1: Not supported yet - requires query functionality to find bindings first.
+     * Finds all bindings where the entity appears as either source or target,
+     * then deletes them one by one.
      */
     public function deleteByEntity(string $entityType, string $entityId): int
     {
-        throw new \BadMethodCallException(
-            'deleteByEntity requires Phase 2 client enhancements. ' .
-            'This feature will be available when the Zestic client supports query operations.'
-        );
-    }
+        try {
+            // Find all bindings involving this entity
+            $bindings = $this->findByEntity($entityType, $entityId);
+            $deletedCount = 0;
 
-    /**
-     * Convert EdgeBinder BindingQueryBuilder to Weaviate v0.5.0 Filter.
-     */
-    protected function convertBindingQueryToWeaviateQuery(QueryBuilderInterface $queryBuilder): ?Filter
-    {
-        if (!$queryBuilder instanceof BasicWeaviateQueryBuilder) {
-            return null;
-        }
-
-        $filters = [];
-
-        // Add from entity filters
-        if ($queryBuilder->getFromEntityType() !== null && $queryBuilder->getFromEntityId() !== null) {
-            $filters[] = Filter::allOf([
-                Filter::byProperty('fromEntityType')->equal($queryBuilder->getFromEntityType()),
-                Filter::byProperty('fromEntityId')->equal($queryBuilder->getFromEntityId()),
-            ]);
-        }
-
-        // Add to entity filters
-        if ($queryBuilder->getToEntityType() !== null && $queryBuilder->getToEntityId() !== null) {
-            $filters[] = Filter::allOf([
-                Filter::byProperty('toEntityType')->equal($queryBuilder->getToEntityType()),
-                Filter::byProperty('toEntityId')->equal($queryBuilder->getToEntityId()),
-            ]);
-        }
-
-        // Add binding type filter
-        if ($queryBuilder->getBindingType() !== null) {
-            $filters[] = Filter::byProperty('bindingType')->equal($queryBuilder->getBindingType());
-        }
-
-        // Add where conditions
-        foreach ($queryBuilder->getWhereConditions() as $condition) {
-            $field = $condition['field'] ?? $condition['property'] ?? null;
-            if ($field && isset($condition['value'])) {
-                $operator = $condition['operator'] ?? '=';
-
-                switch ($operator) {
-                    case '=':
-                        $filters[] = Filter::byProperty($field)->equal($condition['value']);
-                        break;
-                    case '!=':
-                        $filters[] = Filter::byProperty($field)->notEqual($condition['value']);
-                        break;
-                    case '>':
-                        $filters[] = Filter::byProperty($field)->greaterThan($condition['value']);
-                        break;
-                    case '<':
-                        $filters[] = Filter::byProperty($field)->lessThan($condition['value']);
-                        break;
-                    case 'LIKE':
-                        $filters[] = Filter::byProperty($field)->like($condition['value']);
-                        break;
-                    case 'IS_NULL':
-                        $filters[] = Filter::byProperty($field)->isNull(true);
-                        break;
-                    case 'IS NOT NULL':
-                        $filters[] = Filter::byProperty($field)->isNull(false);
-                        break;
-                }
-            } elseif ($field && isset($condition['operator'])) {
-                // Handle operators that don't need a value (like IS_NULL)
-                $operator = $condition['operator'];
-                switch ($operator) {
-                    case 'IS_NULL':
-                        $filters[] = Filter::byProperty($field)->isNull(true);
-                        break;
-                    case 'EXISTS':
-                        $filters[] = Filter::byProperty($field)->isNull(false);
-                        break;
+            // Delete each binding individually
+            foreach ($bindings as $binding) {
+                try {
+                    $this->delete($binding->getId());
+                    ++$deletedCount;
+                } catch (\EdgeBinder\Exception\BindingNotFoundException $e) {
+                    // Binding was already deleted by another process - this is acceptable
+                    // Continue without incrementing the count
                 }
             }
-        }
 
-        // Return combined filter or null if no filters
-        if (empty($filters)) {
-            return null;
+            return $deletedCount;
+        } catch (\Exception $e) {
+            throw WeaviateException::serverError('deleteByEntity', 'Delete by entity failed: ' . $e->getMessage(), $e);
         }
-
-        return count($filters) === 1 ? $filters[0] : Filter::allOf($filters);
     }
 
     /**
@@ -611,5 +624,221 @@ class WeaviateAdapter implements PersistenceAdapterInterface
         }
 
         return $bindings;
+    }
+
+    /**
+     * Get all bindings from Weaviate for filtering.
+     *
+     * @return BindingInterface[] All bindings in the collection
+     */
+    private function getAllBindings(): array
+    {
+        try {
+            $collection = $this->client->collections()->get($this->collectionName);
+            $results = $collection->query()
+                ->returnProperties([
+                    'bindingId', 'fromEntityType', 'fromEntityId',
+                    'toEntityType', 'toEntityId', 'bindingType',
+                    'metadata', 'createdAt', 'updatedAt',
+                ])
+                ->fetchObjects();
+
+            return $this->convertWeaviateResultsToBindings($results);
+        } catch (\Exception $e) {
+            throw WeaviateException::serverError('getAllBindings', 'Failed to fetch all bindings: ' . $e->getMessage(), $e);
+        }
+    }
+
+    /**
+     * Filter bindings based on query criteria.
+     *
+     * @param array<string, mixed> $criteria Query criteria from transformer
+     *
+     * @return BindingInterface[] Filtered bindings
+     */
+    private function filterBindings(array $criteria): array
+    {
+        $results = $this->getAllBindings();
+
+        // Filter by from entity
+        if (isset($criteria['fromType']) && isset($criteria['fromId'])) {
+            $fromType = $criteria['fromType'];
+            $fromId = $criteria['fromId'];
+            $results = array_filter(
+                $results,
+                fn (BindingInterface $binding) => $binding->getFromType() === $fromType && $binding->getFromId() === $fromId
+            );
+        }
+
+        // Filter by to entity
+        if (isset($criteria['toType']) && isset($criteria['toId'])) {
+            $toType = $criteria['toType'];
+            $toId = $criteria['toId'];
+            $results = array_filter(
+                $results,
+                fn (BindingInterface $binding) => $binding->getToType() === $toType && $binding->getToId() === $toId
+            );
+        }
+
+        // Filter by binding type
+        if (isset($criteria['type'])) {
+            $type = $criteria['type'];
+            $results = array_filter(
+                $results,
+                fn (BindingInterface $binding) => $binding->getType() === $type
+            );
+        }
+
+        // Apply where conditions
+        if (isset($criteria['where'])) {
+            foreach ($criteria['where'] as $condition) {
+                $results = $this->applyWhereCondition($results, $condition);
+            }
+        }
+
+        // Apply OR conditions
+        if (isset($criteria['orWhere'])) {
+            foreach ($criteria['orWhere'] as $orGroup) {
+                $orResults = $this->getAllBindings();
+                foreach ($orGroup as $condition) {
+                    $orResults = $this->applyWhereCondition($orResults, $condition);
+                }
+                // Merge OR results with main results
+                $results = array_merge($results, $orResults);
+                $results = array_unique($results, SORT_REGULAR);
+            }
+        }
+
+        return array_values($results);
+    }
+
+    /**
+     * Apply a single where condition to filter bindings.
+     *
+     * @param BindingInterface[]   $bindings  Bindings to filter
+     * @param array<string, mixed> $condition Where condition
+     *
+     * @return BindingInterface[] Filtered bindings
+     */
+    private function applyWhereCondition(array $bindings, array $condition): array
+    {
+        $field = $condition['field'];
+        $operator = $condition['operator'];
+        $value = $condition['value'] ?? null;
+
+        return array_filter($bindings, function (BindingInterface $binding) use ($field, $operator, $value) {
+            $fieldValue = $this->getFieldValue($binding, $field);
+
+            return match ($operator) {
+                '=' => $fieldValue === $value,
+                '!=' => $fieldValue !== $value,
+                '>' => $fieldValue > $value,
+                '>=' => $fieldValue >= $value,
+                '<' => $fieldValue < $value,
+                '<=' => $fieldValue <= $value,
+                'in' => is_array($value) && in_array($fieldValue, $value, true),
+                'notIn' => is_array($value) && !in_array($fieldValue, $value, true),
+                'between' => is_array($value) && 2 === count($value)
+                           && $fieldValue >= $value[0] && $fieldValue <= $value[1],
+                'exists' => $this->fieldExists($binding, $field),
+                'null' => !$this->fieldExists($binding, $field) || null === $fieldValue,
+                'notNull' => $this->fieldExists($binding, $field) && null !== $fieldValue,
+                default => throw new WeaviateException('query', "Unsupported operator: {$operator}"),
+            };
+        });
+    }
+
+    /**
+     * Apply ordering to bindings.
+     *
+     * @param BindingInterface[]   $bindings Bindings to order
+     * @param array<string, mixed> $orderBy  Order criteria
+     *
+     * @return BindingInterface[] Ordered bindings
+     */
+    private function applyOrdering(array $bindings, array $orderBy): array
+    {
+        $field = $orderBy['field'];
+        $direction = strtolower($orderBy['direction'] ?? 'asc');
+
+        usort($bindings, function (BindingInterface $a, BindingInterface $b) use ($field, $direction) {
+            $valueA = $this->getOrderingValue($a, $field);
+            $valueB = $this->getOrderingValue($b, $field);
+
+            $comparison = $valueA <=> $valueB;
+
+            return 'desc' === $direction ? -$comparison : $comparison;
+        });
+
+        return $bindings;
+    }
+
+    /**
+     * Get value for ordering from binding.
+     *
+     * @param BindingInterface $binding The binding
+     * @param string           $field   The field to get value for
+     *
+     * @return mixed The value for ordering
+     */
+    private function getOrderingValue(BindingInterface $binding, string $field): mixed
+    {
+        return match ($field) {
+            'id' => $binding->getId(),
+            'fromType' => $binding->getFromType(),
+            'fromId' => $binding->getFromId(),
+            'toType' => $binding->getToType(),
+            'toId' => $binding->getToId(),
+            'type' => $binding->getType(),
+            'createdAt' => $binding->getCreatedAt()->getTimestamp(),
+            'updatedAt' => $binding->getUpdatedAt()->getTimestamp(),
+            default => $binding->getMetadata()[$field] ?? null,
+        };
+    }
+
+    /**
+     * Get field value from binding, supporting nested paths like 'metadata.level'.
+     */
+    private function getFieldValue(BindingInterface $binding, string $field): mixed
+    {
+        // Handle metadata fields
+        if (str_starts_with($field, 'metadata.')) {
+            $metadataKey = substr($field, 9); // Remove 'metadata.' prefix
+            $metadata = $binding->getMetadata();
+
+            return array_key_exists($metadataKey, $metadata) ? $metadata[$metadataKey] : null;
+        }
+
+        // Handle direct binding properties
+        return match ($field) {
+            'id' => $binding->getId(),
+            'fromType' => $binding->getFromType(),
+            'fromId' => $binding->getFromId(),
+            'toType' => $binding->getToType(),
+            'toId' => $binding->getToId(),
+            'type' => $binding->getType(),
+            'createdAt' => $binding->getCreatedAt()->getTimestamp(),
+            'updatedAt' => $binding->getUpdatedAt()->getTimestamp(),
+            default => $binding->getMetadata()[$field] ?? null,
+        };
+    }
+
+    /**
+     * Check if field exists in binding, supporting nested paths.
+     */
+    private function fieldExists(BindingInterface $binding, string $field): bool
+    {
+        // Handle metadata fields
+        if (str_starts_with($field, 'metadata.')) {
+            $metadataKey = substr($field, 9); // Remove 'metadata.' prefix
+
+            return array_key_exists($metadataKey, $binding->getMetadata());
+        }
+
+        // Handle direct binding properties
+        return match ($field) {
+            'id', 'fromType', 'fromId', 'toType', 'toId', 'type', 'createdAt', 'updatedAt' => true,
+            default => array_key_exists($field, $binding->getMetadata()),
+        };
     }
 }
