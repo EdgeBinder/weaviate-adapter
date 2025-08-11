@@ -6,7 +6,7 @@ namespace EdgeBinder\Adapter\Weaviate\Tests\Unit\Query;
 
 use EdgeBinder\Contracts\BindingInterface;
 use EdgeBinder\Contracts\QueryResultInterface;
-use EdgeBinder\Query\QueryResult;
+use EdgeBinder\Adapter\Weaviate\Query\QueryResult;
 use PHPUnit\Framework\TestCase;
 
 /**

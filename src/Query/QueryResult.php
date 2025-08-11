@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EdgeBinder\Query;
+namespace EdgeBinder\Adapter\Weaviate\Query;
 
 use EdgeBinder\Contracts\BindingInterface;
 use EdgeBinder\Contracts\QueryResultInterface;

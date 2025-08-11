@@ -17,7 +17,7 @@ use EdgeBinder\Exception\BindingNotFoundException;
 use EdgeBinder\Exception\EntityExtractionException;
 use EdgeBinder\Exception\InvalidMetadataException;
 use EdgeBinder\Query\QueryCriteria;
-use EdgeBinder\Query\QueryResult;
+use EdgeBinder\Adapter\Weaviate\Query\QueryResult;
 use Weaviate\Query\Filter;
 use Weaviate\WeaviateClient;
 
