@@ -36,14 +36,25 @@ final class WeaviateAdapterFactoryTest extends TestCase
 
     public function testCreateAdapterWithMinimalConfig(): void
     {
+        // Create a mock WeaviateClient
+        $mockClient = $this->createMock(WeaviateClient::class);
+
+        // Create a mock container that returns the mock client
+        $container = $this->createMock(ContainerInterface::class);
+        $container->method('has')
+            ->with(WeaviateClient::class)
+            ->willReturn(true);
+        $container->method('get')
+            ->with(WeaviateClient::class)
+            ->willReturn($mockClient);
+
         $config = [
             'instance' => [
                 'adapter' => 'weaviate',
-                'host' => 'localhost',
-                'port' => 8080,
+                'use_container_client' => true, // Use the mocked client from container
             ],
             'global' => [],
-            'container' => $this->createMock(ContainerInterface::class),
+            'container' => $container,
         ];
 
         $adapter = $this->factory->createAdapter($config);
@@ -54,13 +65,22 @@ final class WeaviateAdapterFactoryTest extends TestCase
 
     public function testCreateAdapterWithFullConfig(): void
     {
+        // Create a mock WeaviateClient
+        $mockClient = $this->createMock(WeaviateClient::class);
+
+        // Create a mock container that returns the mock client
         $container = $this->createMock(ContainerInterface::class);
+        $container->method('has')
+            ->with(WeaviateClient::class)
+            ->willReturn(true);
+        $container->method('get')
+            ->with(WeaviateClient::class)
+            ->willReturn($mockClient);
+
         $config = [
             'instance' => [
                 'adapter' => 'weaviate',
-                'host' => 'localhost',
-                'port' => 8080,
-                'scheme' => 'http',
+                'use_container_client' => true, // Use the mocked client from container
                 'collection_name' => 'custom_bindings',
                 'schema' => [
                     'auto_create' => true,
@@ -82,15 +102,25 @@ final class WeaviateAdapterFactoryTest extends TestCase
 
     public function testCreateAdapterWithHttpsScheme(): void
     {
+        // Create a mock WeaviateClient
+        $mockClient = $this->createMock(WeaviateClient::class);
+
+        // Create a mock container that returns the mock client
+        $container = $this->createMock(ContainerInterface::class);
+        $container->method('has')
+            ->with(WeaviateClient::class)
+            ->willReturn(true);
+        $container->method('get')
+            ->with(WeaviateClient::class)
+            ->willReturn($mockClient);
+
         $config = [
             'instance' => [
                 'adapter' => 'weaviate',
-                'host' => 'weaviate.example.com',
-                'port' => 443,
-                'scheme' => 'https',
+                'use_container_client' => true, // Use the mocked client from container
             ],
             'global' => [],
-            'container' => $this->createMock(ContainerInterface::class),
+            'container' => $container,
         ];
 
         $adapter = $this->factory->createAdapter($config);
@@ -101,15 +131,26 @@ final class WeaviateAdapterFactoryTest extends TestCase
 
     public function testCreateAdapterWithCustomCollectionName(): void
     {
+        // Create a mock WeaviateClient
+        $mockClient = $this->createMock(WeaviateClient::class);
+
+        // Create a mock container that returns the mock client
+        $container = $this->createMock(ContainerInterface::class);
+        $container->method('has')
+            ->with(WeaviateClient::class)
+            ->willReturn(true);
+        $container->method('get')
+            ->with(WeaviateClient::class)
+            ->willReturn($mockClient);
+
         $config = [
             'instance' => [
                 'adapter' => 'weaviate',
-                'host' => 'localhost',
-                'port' => 8080,
+                'use_container_client' => true,
                 'collection_name' => 'my_custom_bindings',
             ],
             'global' => [],
-            'container' => $this->createMock(ContainerInterface::class),
+            'container' => $container,
         ];
 
         $adapter = $this->factory->createAdapter($config);
@@ -120,14 +161,25 @@ final class WeaviateAdapterFactoryTest extends TestCase
 
     public function testCreateAdapterReturnsNewInstanceEachTime(): void
     {
+        // Create a mock WeaviateClient
+        $mockClient = $this->createMock(WeaviateClient::class);
+
+        // Create a mock container that returns the mock client
+        $container = $this->createMock(ContainerInterface::class);
+        $container->method('has')
+            ->with(WeaviateClient::class)
+            ->willReturn(true);
+        $container->method('get')
+            ->with(WeaviateClient::class)
+            ->willReturn($mockClient);
+
         $config = [
             'instance' => [
                 'adapter' => 'weaviate',
-                'host' => 'localhost',
-                'port' => 8080,
+                'use_container_client' => true,
             ],
             'global' => [],
-            'container' => $this->createMock(ContainerInterface::class),
+            'container' => $container,
         ];
 
         $adapter1 = $this->factory->createAdapter($config);
@@ -174,14 +226,25 @@ final class WeaviateAdapterFactoryTest extends TestCase
 
     public function testCreateAdapterWithDefaultSchemaConfig(): void
     {
+        // Create a mock WeaviateClient
+        $mockClient = $this->createMock(WeaviateClient::class);
+
+        // Create a mock container that returns the mock client
+        $container = $this->createMock(ContainerInterface::class);
+        $container->method('has')
+            ->with(WeaviateClient::class)
+            ->willReturn(true);
+        $container->method('get')
+            ->with(WeaviateClient::class)
+            ->willReturn($mockClient);
+
         $config = [
             'instance' => [
                 'adapter' => 'weaviate',
-                'host' => 'localhost',
-                'port' => 8080,
+                'use_container_client' => true,
             ],
             'global' => [],
-            'container' => $this->createMock(ContainerInterface::class),
+            'container' => $container,
         ];
 
         $adapter = $this->factory->createAdapter($config);
@@ -191,17 +254,28 @@ final class WeaviateAdapterFactoryTest extends TestCase
 
     public function testCreateAdapterWithDisabledSchemaAutoCreate(): void
     {
+        // Create a mock WeaviateClient
+        $mockClient = $this->createMock(WeaviateClient::class);
+
+        // Create a mock container that returns the mock client
+        $container = $this->createMock(ContainerInterface::class);
+        $container->method('has')
+            ->with(WeaviateClient::class)
+            ->willReturn(true);
+        $container->method('get')
+            ->with(WeaviateClient::class)
+            ->willReturn($mockClient);
+
         $config = [
             'instance' => [
                 'adapter' => 'weaviate',
-                'host' => 'localhost',
-                'port' => 8080,
+                'use_container_client' => true,
                 'schema' => [
                     'auto_create' => false,
                 ],
             ],
             'global' => [],
-            'container' => $this->createMock(ContainerInterface::class),
+            'container' => $container,
         ];
 
         $adapter = $this->factory->createAdapter($config);

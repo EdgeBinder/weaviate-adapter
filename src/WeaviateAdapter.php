@@ -64,8 +64,6 @@ class WeaviateAdapter implements PersistenceAdapterInterface
         $metadataMapper = new MetadataMapper();
         $this->bindingMapper = $bindingMapper ?? new BindingMapper($metadataMapper);
         $this->transformer = new WeaviateTransformer();
-
-        $this->initializeSchema();
     }
 
     /**
@@ -264,8 +262,9 @@ class WeaviateAdapter implements PersistenceAdapterInterface
 
     /**
      * Initialize Weaviate schema if auto-create is enabled.
+     * This should be called explicitly when needed, typically in test setup or application initialization.
      */
-    private function initializeSchema(): void
+    public function initializeSchema(): void
     {
         if ($this->config['schema']['auto_create']) {
             $this->ensureCollectionExists();

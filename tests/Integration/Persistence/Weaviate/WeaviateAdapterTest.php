@@ -36,7 +36,12 @@ final class WeaviateAdapterTest extends AbstractAdapterTestSuite
             ],
         ];
 
-        return new WeaviateAdapter(self::$client, $config);
+        $adapter = new WeaviateAdapter(self::$client, $config);
+
+        // Initialize schema explicitly for integration tests
+        $adapter->initializeSchema();
+
+        return $adapter;
     }
 
     protected function cleanupAdapter(): void
