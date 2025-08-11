@@ -16,7 +16,7 @@ final class WeaviateExceptionTest extends TestCase
     public function testExtendsPersistenceException(): void
     {
         $exception = new WeaviateException('test_operation', 'test reason');
-        
+
         $this->assertInstanceOf(PersistenceException::class, $exception);
         $this->assertInstanceOf(\Throwable::class, $exception);
     }
@@ -36,7 +36,7 @@ final class WeaviateExceptionTest extends TestCase
     {
         $previousException = new \RuntimeException('Previous error');
         $errorDetails = ['field' => 'value', 'code' => 400];
-        
+
         $exception = new WeaviateException(
             operation: 'query',
             reason: 'Query failed',
@@ -45,7 +45,7 @@ final class WeaviateExceptionTest extends TestCase
             weaviateErrorCode: 'QUERY_ERROR',
             weaviateErrorDetails: $errorDetails
         );
-        
+
         $this->assertSame('Persistence operation \'query\' failed: Query failed', $exception->getMessage());
         $this->assertSame($previousException, $exception->getPrevious());
         $this->assertTrue($exception->isRetryable());
@@ -56,35 +56,35 @@ final class WeaviateExceptionTest extends TestCase
     public function testIsRetryableDefaultsFalse(): void
     {
         $exception = new WeaviateException('test', 'test');
-        
+
         $this->assertFalse($exception->isRetryable());
     }
 
     public function testIsRetryableCanBeSetTrue(): void
     {
         $exception = new WeaviateException('test', 'test', retryable: true);
-        
+
         $this->assertTrue($exception->isRetryable());
     }
 
     public function testGetWeaviateErrorCodeReturnsNull(): void
     {
         $exception = new WeaviateException('test', 'test');
-        
+
         $this->assertNull($exception->getWeaviateErrorCode());
     }
 
     public function testGetWeaviateErrorCodeReturnsValue(): void
     {
         $exception = new WeaviateException('test', 'test', weaviateErrorCode: 'ERROR_123');
-        
+
         $this->assertSame('ERROR_123', $exception->getWeaviateErrorCode());
     }
 
     public function testGetWeaviateErrorDetailsReturnsNull(): void
     {
         $exception = new WeaviateException('test', 'test');
-        
+
         $this->assertNull($exception->getWeaviateErrorDetails());
     }
 
@@ -92,7 +92,7 @@ final class WeaviateExceptionTest extends TestCase
     {
         $details = ['error' => 'Invalid request', 'status' => 400];
         $exception = new WeaviateException('test', 'test', weaviateErrorDetails: $details);
-        
+
         $this->assertSame($details, $exception->getWeaviateErrorDetails());
     }
 
@@ -112,7 +112,7 @@ final class WeaviateExceptionTest extends TestCase
     {
         $previousException = new \Exception('Network error');
         $exception = WeaviateException::connectionError('connect', 'Failed to connect', $previousException);
-        
+
         $this->assertSame($previousException, $exception->getPrevious());
         $this->assertTrue($exception->isRetryable());
     }
@@ -133,7 +133,7 @@ final class WeaviateExceptionTest extends TestCase
     {
         $details = ['field' => 'name', 'issue' => 'required'];
         $exception = WeaviateException::clientError('validate', 'Validation failed', 'VALIDATION_ERROR', $details);
-        
+
         $this->assertFalse($exception->isRetryable());
         $this->assertSame('VALIDATION_ERROR', $exception->getWeaviateErrorCode());
         $this->assertSame($details, $exception->getWeaviateErrorDetails());
@@ -155,7 +155,7 @@ final class WeaviateExceptionTest extends TestCase
     {
         $previousException = new \RuntimeException('Database connection lost');
         $details = ['server' => 'weaviate-01', 'timestamp' => '2024-01-01T12:00:00Z'];
-        
+
         $exception = WeaviateException::serverError(
             'backup',
             'Backup failed',
@@ -163,7 +163,7 @@ final class WeaviateExceptionTest extends TestCase
             'BACKUP_ERROR',
             $details
         );
-        
+
         $this->assertSame($previousException, $exception->getPrevious());
         $this->assertTrue($exception->isRetryable());
         $this->assertSame('BACKUP_ERROR', $exception->getWeaviateErrorCode());
@@ -175,7 +175,7 @@ final class WeaviateExceptionTest extends TestCase
         $connection = WeaviateException::connectionError('connect', 'timeout');
         $client = WeaviateException::clientError('validate', 'invalid');
         $server = WeaviateException::serverError('process', 'error');
-        
+
         $this->assertNotSame($connection, $client);
         $this->assertNotSame($client, $server);
         $this->assertNotSame($connection, $server);
@@ -186,11 +186,11 @@ final class WeaviateExceptionTest extends TestCase
         // Connection errors should be retryable
         $connection = WeaviateException::connectionError('connect', 'timeout');
         $this->assertTrue($connection->isRetryable());
-        
+
         // Client errors should not be retryable
         $client = WeaviateException::clientError('validate', 'invalid');
         $this->assertFalse($client->isRetryable());
-        
+
         // Server errors should be retryable
         $server = WeaviateException::serverError('process', 'error');
         $this->assertTrue($server->isRetryable());
@@ -212,7 +212,7 @@ final class WeaviateExceptionTest extends TestCase
     {
         $this->expectException(WeaviateException::class);
         $this->expectExceptionMessage('Persistence operation \'test\' failed: Test exception');
-        
+
         throw new WeaviateException('test', 'Test exception');
     }
 
@@ -229,7 +229,7 @@ final class WeaviateExceptionTest extends TestCase
     public function testExceptionHierarchy(): void
     {
         $exception = new WeaviateException('test', 'test');
-        
+
         $this->assertInstanceOf(\Exception::class, $exception);
         $this->assertInstanceOf(\Throwable::class, $exception);
         $this->assertInstanceOf(PersistenceException::class, $exception);
@@ -239,7 +239,7 @@ final class WeaviateExceptionTest extends TestCase
     public function testEmptyErrorDetailsArray(): void
     {
         $exception = new WeaviateException('test', 'test', weaviateErrorDetails: []);
-        
+
         $this->assertSame([], $exception->getWeaviateErrorDetails());
         $this->assertIsArray($exception->getWeaviateErrorDetails());
     }
@@ -247,7 +247,7 @@ final class WeaviateExceptionTest extends TestCase
     public function testEmptyErrorCode(): void
     {
         $exception = new WeaviateException('test', 'test', weaviateErrorCode: '');
-        
+
         $this->assertSame('', $exception->getWeaviateErrorCode());
     }
 }

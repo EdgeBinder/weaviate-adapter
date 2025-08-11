@@ -23,7 +23,7 @@ final class MetadataMapperTest extends TestCase
     public function testSerializeEmptyArray(): void
     {
         $result = $this->mapper->serialize([]);
-        
+
         $this->assertSame('{}', $result);
     }
 
@@ -34,10 +34,10 @@ final class MetadataMapperTest extends TestCase
             'priority' => 1,
             'active' => true,
         ];
-        
+
         $result = $this->mapper->serialize($metadata);
         $decoded = json_decode($result, true);
-        
+
         $this->assertSame($metadata, $decoded);
     }
 
@@ -48,10 +48,10 @@ final class MetadataMapperTest extends TestCase
             'createdAt' => $dateTime,
             'level' => 'write',
         ];
-        
+
         $result = $this->mapper->serialize($metadata);
         $decoded = json_decode($result, true);
-        
+
         $this->assertSame('2024-01-01T12:00:00+00:00', $decoded['createdAt']);
         $this->assertSame('write', $decoded['level']);
     }
@@ -68,10 +68,10 @@ final class MetadataMapperTest extends TestCase
                 ],
             ],
         ];
-        
+
         $result = $this->mapper->serialize($metadata);
         $decoded = json_decode($result, true);
-        
+
         $this->assertSame($metadata, $decoded);
     }
 
@@ -84,10 +84,10 @@ final class MetadataMapperTest extends TestCase
                 'level' => 'info',
             ],
         ];
-        
+
         $result = $this->mapper->serialize($metadata);
         $decoded = json_decode($result, true);
-        
+
         $this->assertSame('2024-01-01T12:00:00+00:00', $decoded['audit']['createdAt']);
         $this->assertSame('info', $decoded['audit']['level']);
     }
@@ -102,10 +102,10 @@ final class MetadataMapperTest extends TestCase
             'null' => null,
             'array' => [1, 2, 3],
         ];
-        
+
         $result = $this->mapper->serialize($metadata);
         $decoded = json_decode($result, true);
-        
+
         $this->assertSame($metadata, $decoded);
     }
 
@@ -132,14 +132,14 @@ final class MetadataMapperTest extends TestCase
     public function testDeserializeNull(): void
     {
         $result = $this->mapper->deserialize(null);
-        
+
         $this->assertSame([], $result);
     }
 
     public function testDeserializeEmptyString(): void
     {
         $result = $this->mapper->deserialize('');
-        
+
         $this->assertSame([], $result);
     }
 
@@ -147,13 +147,13 @@ final class MetadataMapperTest extends TestCase
     {
         $json = '{"level":"read","priority":1,"active":true}';
         $result = $this->mapper->deserialize($json);
-        
+
         $expected = [
             'level' => 'read',
             'priority' => 1,
             'active' => true,
         ];
-        
+
         $this->assertSame($expected, $result);
     }
 
@@ -161,7 +161,7 @@ final class MetadataMapperTest extends TestCase
     {
         $json = '{"createdAt":"2024-01-01T12:00:00+00:00","level":"write"}';
         $result = $this->mapper->deserialize($json);
-        
+
         $this->assertInstanceOf(\DateTimeImmutable::class, $result['createdAt']);
         $this->assertSame('2024-01-01T12:00:00+00:00', $result['createdAt']->format('c'));
         $this->assertSame('write', $result['level']);
@@ -171,7 +171,7 @@ final class MetadataMapperTest extends TestCase
     {
         $json = '{"audit":{"createdAt":"2024-01-01T12:00:00+00:00","level":"info"}}';
         $result = $this->mapper->deserialize($json);
-        
+
         $this->assertInstanceOf(\DateTimeImmutable::class, $result['audit']['createdAt']);
         $this->assertSame('2024-01-01T12:00:00+00:00', $result['audit']['createdAt']->format('c'));
         $this->assertSame('info', $result['audit']['level']);
@@ -182,7 +182,7 @@ final class MetadataMapperTest extends TestCase
         // This looks like ISO 8601 but is invalid
         $json = '{"createdAt":"2024-13-01T25:00:00+00:00","level":"write"}';
         $result = $this->mapper->deserialize($json);
-        
+
         // Should return the original string when DateTime parsing fails
         $this->assertSame('2024-13-01T25:00:00+00:00', $result['createdAt']);
         $this->assertSame('write', $result['level']);
@@ -191,21 +191,21 @@ final class MetadataMapperTest extends TestCase
     public function testDeserializeThrowsExceptionOnInvalidJson(): void
     {
         $invalidJson = '{"invalid": json}';
-        
+
         $this->expectException(WeaviateException::class);
         $this->expectExceptionMessage('Failed to deserialize metadata');
-        
+
         $this->mapper->deserialize($invalidJson);
     }
 
     public function testDeserializeThrowsExceptionOnNonArrayJson(): void
     {
         $nonArrayJson = '"this is a string"';
-        
+
         $this->expectException(WeaviateException::class);
         $this->expectExceptionMessage('Failed to deserialize metadata');
         $this->expectExceptionMessage('Decoded JSON is not an array');
-        
+
         $this->mapper->deserialize($nonArrayJson);
     }
 
@@ -224,17 +224,17 @@ final class MetadataMapperTest extends TestCase
                 'verified' => false,
             ],
         ];
-        
+
         $serialized = $this->mapper->serialize($originalMetadata);
         $deserialized = $this->mapper->deserialize($serialized);
-        
+
         // Check basic structure
         $this->assertSame('write', $deserialized['level']);
         $this->assertSame(123, $deserialized['user']['id']);
         $this->assertSame(['read', 'write', 'admin'], $deserialized['user']['permissions']);
         $this->assertTrue($deserialized['flags']['active']);
         $this->assertFalse($deserialized['flags']['verified']);
-        
+
         // Check DateTime objects
         $this->assertInstanceOf(\DateTimeImmutable::class, $deserialized['createdAt']);
         $this->assertInstanceOf(\DateTimeImmutable::class, $deserialized['user']['lastLogin']);
@@ -250,15 +250,18 @@ final class MetadataMapperTest extends TestCase
             '2024-12-31T23:59:59-05:00',
             '2024-06-15T14:30:45Z',
         ];
-        
+
         foreach ($validDates as $dateString) {
             $json = json_encode(['date' => $dateString]);
             $this->assertNotFalse($json, 'Failed to encode test data');
 
             $result = $this->mapper->deserialize($json);
 
-            $this->assertInstanceOf(\DateTimeImmutable::class, $result['date'],
-                "Failed to detect ISO 8601 format: {$dateString}");
+            $this->assertInstanceOf(
+                \DateTimeImmutable::class,
+                $result['date'],
+                "Failed to detect ISO 8601 format: {$dateString}"
+            );
         }
     }
 
@@ -271,15 +274,18 @@ final class MetadataMapperTest extends TestCase
             '2024/01/01 12:00:00',  // Wrong format
             'Mon, 01 Jan 2024 12:00:00 GMT',  // RFC format
         ];
-        
+
         foreach ($nonDateStrings as $string) {
             $json = json_encode(['value' => $string]);
             $this->assertNotFalse($json, 'Failed to encode test data');
 
             $result = $this->mapper->deserialize($json);
 
-            $this->assertSame($string, $result['value'],
-                "Incorrectly converted non-ISO 8601 string: {$string}");
+            $this->assertSame(
+                $string,
+                $result['value'],
+                "Incorrectly converted non-ISO 8601 string: {$string}"
+            );
         }
     }
 
@@ -306,13 +312,17 @@ final class MetadataMapperTest extends TestCase
                 ],
             ],
         ];
-        
+
         $serialized = $this->mapper->serialize($deepMetadata);
         $deserialized = $this->mapper->deserialize($serialized);
-        
-        $this->assertInstanceOf(\DateTimeImmutable::class, 
-            $deserialized['level1']['level2']['level3']['level4']['date']);
-        $this->assertSame('deep', 
-            $deserialized['level1']['level2']['level3']['level4']['value']);
+
+        $this->assertInstanceOf(
+            \DateTimeImmutable::class,
+            $deserialized['level1']['level2']['level3']['level4']['date']
+        );
+        $this->assertSame(
+            'deep',
+            $deserialized['level1']['level2']['level3']['level4']['value']
+        );
     }
 }

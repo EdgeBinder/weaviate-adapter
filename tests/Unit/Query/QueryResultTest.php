@@ -17,14 +17,14 @@ final class QueryResultTest extends TestCase
     public function testImplementsQueryResultInterface(): void
     {
         $result = new QueryResult([]);
-        
+
         $this->assertInstanceOf(QueryResultInterface::class, $result);
     }
 
     public function testConstructorWithEmptyArray(): void
     {
         $result = new QueryResult([]);
-        
+
         $this->assertInstanceOf(QueryResult::class, $result);
         $this->assertSame([], $result->getBindings());
     }
@@ -34,9 +34,9 @@ final class QueryResultTest extends TestCase
         $binding1 = $this->createMock(BindingInterface::class);
         $binding2 = $this->createMock(BindingInterface::class);
         $bindings = [$binding1, $binding2];
-        
+
         $result = new QueryResult($bindings);
-        
+
         $this->assertSame($bindings, $result->getBindings());
     }
 
@@ -46,9 +46,9 @@ final class QueryResultTest extends TestCase
         $binding2 = $this->createMock(BindingInterface::class);
         $binding3 = $this->createMock(BindingInterface::class);
         $bindings = [$binding1, $binding2, $binding3];
-        
+
         $result = new QueryResult($bindings);
-        
+
         $this->assertSame($bindings, $result->getBindings());
         $this->assertCount(3, $result->getBindings());
     }
@@ -56,7 +56,7 @@ final class QueryResultTest extends TestCase
     public function testIsEmptyWithEmptyArray(): void
     {
         $result = new QueryResult([]);
-        
+
         $this->assertTrue($result->isEmpty());
     }
 
@@ -64,14 +64,14 @@ final class QueryResultTest extends TestCase
     {
         $binding = $this->createMock(BindingInterface::class);
         $result = new QueryResult([$binding]);
-        
+
         $this->assertFalse($result->isEmpty());
     }
 
     public function testFirstWithEmptyArray(): void
     {
         $result = new QueryResult([]);
-        
+
         $this->assertNull($result->first());
     }
 
@@ -79,7 +79,7 @@ final class QueryResultTest extends TestCase
     {
         $binding = $this->createMock(BindingInterface::class);
         $result = new QueryResult([$binding]);
-        
+
         $this->assertSame($binding, $result->first());
     }
 
@@ -89,14 +89,14 @@ final class QueryResultTest extends TestCase
         $binding2 = $this->createMock(BindingInterface::class);
         $binding3 = $this->createMock(BindingInterface::class);
         $result = new QueryResult([$binding1, $binding2, $binding3]);
-        
+
         $this->assertSame($binding1, $result->first());
     }
 
     public function testCountWithEmptyArray(): void
     {
         $result = new QueryResult([]);
-        
+
         $this->assertSame(0, $result->count());
     }
 
@@ -104,7 +104,7 @@ final class QueryResultTest extends TestCase
     {
         $binding = $this->createMock(BindingInterface::class);
         $result = new QueryResult([$binding]);
-        
+
         $this->assertSame(1, $result->count());
     }
 
@@ -115,7 +115,7 @@ final class QueryResultTest extends TestCase
         $binding3 = $this->createMock(BindingInterface::class);
         $binding4 = $this->createMock(BindingInterface::class);
         $result = new QueryResult([$binding1, $binding2, $binding3, $binding4]);
-        
+
         $this->assertSame(4, $result->count());
     }
 
@@ -123,7 +123,7 @@ final class QueryResultTest extends TestCase
     {
         $result = new QueryResult([]);
         $iterator = $result->getIterator();
-        
+
         $this->assertInstanceOf(\ArrayIterator::class, $iterator);
         $this->assertSame([], $iterator->getArrayCopy());
     }
@@ -133,10 +133,10 @@ final class QueryResultTest extends TestCase
         $binding1 = $this->createMock(BindingInterface::class);
         $binding2 = $this->createMock(BindingInterface::class);
         $bindings = [$binding1, $binding2];
-        
+
         $result = new QueryResult($bindings);
         $iterator = $result->getIterator();
-        
+
         $this->assertInstanceOf(\ArrayIterator::class, $iterator);
         $this->assertSame($bindings, $iterator->getArrayCopy());
     }
@@ -147,14 +147,14 @@ final class QueryResultTest extends TestCase
         $binding2 = $this->createMock(BindingInterface::class);
         $binding3 = $this->createMock(BindingInterface::class);
         $bindings = [$binding1, $binding2, $binding3];
-        
+
         $result = new QueryResult($bindings);
-        
+
         $iteratedBindings = [];
         foreach ($result as $binding) {
             $iteratedBindings[] = $binding;
         }
-        
+
         $this->assertSame($bindings, $iteratedBindings);
     }
 
@@ -162,7 +162,7 @@ final class QueryResultTest extends TestCase
     {
         $binding = $this->createMock(BindingInterface::class);
         $result = new QueryResult([$binding]);
-        
+
         // Verify that the class is readonly by checking that properties cannot be modified
         $reflection = new \ReflectionClass($result);
         $this->assertTrue($reflection->isReadOnly());
@@ -173,12 +173,12 @@ final class QueryResultTest extends TestCase
         $binding1 = $this->createMock(BindingInterface::class);
         $binding2 = $this->createMock(BindingInterface::class);
         $originalBindings = [$binding1, $binding2];
-        
+
         $result = new QueryResult($originalBindings);
-        
+
         // Modify the original array
         $originalBindings[] = $this->createMock(BindingInterface::class);
-        
+
         // The result should still have the original bindings
         $this->assertCount(2, $result->getBindings());
         $this->assertSame($binding1, $result->getBindings()[0]);
@@ -189,10 +189,10 @@ final class QueryResultTest extends TestCase
     {
         $binding1 = $this->createMock(BindingInterface::class);
         $binding2 = $this->createMock(BindingInterface::class);
-        
+
         $result1 = new QueryResult([$binding1]);
         $result2 = new QueryResult([$binding2]);
-        
+
         $this->assertNotSame($result1->getBindings(), $result2->getBindings());
         $this->assertSame($binding1, $result1->first());
         $this->assertSame($binding2, $result2->first());
@@ -206,7 +206,7 @@ final class QueryResultTest extends TestCase
         $emptyResult = new QueryResult([]);
         $this->assertTrue($emptyResult->isEmpty());
         $this->assertSame(0, $emptyResult->count());
-        
+
         // Non-empty result
         $binding = $this->createMock(BindingInterface::class);
         $nonEmptyResult = new QueryResult([$binding]);
@@ -219,9 +219,9 @@ final class QueryResultTest extends TestCase
         $binding1 = $this->createMock(BindingInterface::class);
         $binding2 = $this->createMock(BindingInterface::class);
         $bindings = [$binding1, $binding2];
-        
+
         $result = new QueryResult($bindings);
-        
+
         $this->assertSame($bindings, $result->getBindings());
         $this->assertSame($bindings, $result->getIterator()->getArrayCopy());
     }
