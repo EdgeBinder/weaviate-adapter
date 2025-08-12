@@ -25,6 +25,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [0.4.1] - 2025-01-12
+
+### Fixed
+- Anonymous class entity handling in GraphQL queries - null bytes and special characters in anonymous class names were causing "Invalid character escape sequence" errors
+- Added sanitization for anonymous class names to make them GraphQL-safe while preserving uniqueness and test compatibility
+
+### Added
+- Comprehensive unit tests for entity type extraction methods
+- `sanitizeAnonymousClassName()` method for handling problematic characters in anonymous class names
+
+### Changed
+- Updated EdgeBinder dependency to >=0.7.1 to support new anonymous class test suite
+
 ## [0.4.0] - 2025-01-12
 
 ### Added
