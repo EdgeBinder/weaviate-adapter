@@ -212,8 +212,6 @@ final class WeaviateAdapterFactoryTest extends TestCase
         $this->factory->createAdapter($config);
     }
 
-
-
     public function testCreateAdapterWithDefaultSchemaConfig(): void
     {
         // Create a mock WeaviateClient
