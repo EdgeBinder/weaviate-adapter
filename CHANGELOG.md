@@ -25,6 +25,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [0.4.0] - 2025-01-12
+
+### Added
+- **MAJOR**: EdgeBinder v0.7.0 compatibility with type-safe AdapterConfiguration
+- Support for configurable WeaviateClient service names via `weaviate_client` configuration key
+- Framework-agnostic dependency injection with proper container integration
+- Enhanced separation of concerns in adapter factory pattern
+
+### Changed
+- **BREAKING**: Updated WeaviateAdapterFactory to use `AdapterConfiguration` class instead of arrays
+- **BREAKING**: Factory now requires EdgeBinder v0.7.0+ for new configuration system
+- **BREAKING**: WeaviateClient must now be registered in container - factory no longer creates clients directly
+- Improved method signature: `createAdapter(AdapterConfiguration $config): PersistenceAdapterInterface`
+- Enhanced framework integration allowing custom service names (e.g., 'weaviate.client.rag', 'weaviate.client.custom')
+
+### Fixed
+- **CRITICAL**: Fixed separation of concerns violation where factory was creating WeaviateClient instances
+- Fixed PHPStan static analysis errors in test suite
+- Removed obsolete tests that violated type safety principles
+- Updated all 12 factory tests to use new AdapterConfiguration format
+
+### Enhanced
+- **Type Safety**: Full type safety with AdapterConfiguration class replacing magic array keys
+- **Framework Support**: Better integration with Laravel, Symfony, Laminas, and other PSR-11 frameworks
+- **Code Quality**: PSR-12 compliant without underscore prefixes for private methods
+- **Test Coverage**: All tests passing (12/12) with proper error handling scenarios
+
+### Technical Details
+- **Dependencies**: Updated to require EdgeBinder v0.7.0+
+- **Static Analysis**: 0 PHPStan errors, full type compliance
+- **Code Style**: 100% PHP-CS-Fixer compliant
+- **Architecture**: Proper dependency injection following modern PHP patterns
+
 ## [0.3.0] - 2025-01-11
 
 ### Added

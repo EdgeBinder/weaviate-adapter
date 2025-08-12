@@ -14,7 +14,7 @@ use Weaviate\WeaviateClient;
  *
  * This test class extends AbstractAdapterTestSuite to ensure that WeaviateAdapter
  * passes all the comprehensive integration tests that validate adapter compliance
- * with the EdgeBinder v0.6.0 specification.
+ * with the EdgeBinder v0.7.0 specification.
  */
 final class WeaviateAdapterTest extends AbstractAdapterTestSuite
 {

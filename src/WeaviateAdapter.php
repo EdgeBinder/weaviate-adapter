@@ -528,7 +528,7 @@ class WeaviateAdapter implements PersistenceAdapterInterface
     /**
      * Execute a query and return matching bindings.
      *
-     * Uses the v0.6.0 criteria transformer pattern for lightweight query execution.
+     * Uses the v0.7.0 criteria transformer pattern for lightweight query execution.
      */
     public function executeQuery(QueryCriteria $criteria): QueryResultInterface
     {
@@ -560,7 +560,7 @@ class WeaviateAdapter implements PersistenceAdapterInterface
     /**
      * Count bindings matching a query.
      *
-     * Uses the v0.6.0 criteria transformer pattern for lightweight count execution.
+     * Uses the v0.7.0 criteria transformer pattern for lightweight count execution.
      */
     public function count(QueryCriteria $criteria): int
     {
