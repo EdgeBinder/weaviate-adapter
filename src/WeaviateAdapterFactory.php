@@ -5,38 +5,35 @@ declare(strict_types=1);
 namespace EdgeBinder\Adapter\Weaviate;
 
 use EdgeBinder\Contracts\PersistenceAdapterInterface;
+use EdgeBinder\Registry\AdapterConfiguration;
 use EdgeBinder\Registry\AdapterFactoryInterface;
-use Psr\Container\ContainerInterface;
 use Weaviate\WeaviateClient;
 
 /**
  * Factory for creating Weaviate adapter instances.
  *
- * This factory follows the EdgeBinder v0.6.0 pattern for simple adapter creation.
+ * This factory follows the EdgeBinder v0.7.0 pattern using AdapterConfiguration.
  */
 class WeaviateAdapterFactory implements AdapterFactoryInterface
 {
     /**
      * Create Weaviate adapter instance with configuration.
      *
-     * @param array<string, mixed> $config Configuration array
+     * @param AdapterConfiguration $config Configuration object
      *
      * @return PersistenceAdapterInterface Configured Weaviate adapter instance
      *
      * @throws \InvalidArgumentException If configuration is invalid
      */
-    public function createAdapter(array $config): PersistenceAdapterInterface
+    public function createAdapter(AdapterConfiguration $config): PersistenceAdapterInterface
     {
-        $instanceConfig = $config['instance'] ?? [];
-        $container = $config['container'] ?? null;
+        // Get Weaviate client from container
+        $client = $this->getWeaviateClientFromContainer($config);
 
-        // Create or get Weaviate client
-        $client = $this->createWeaviateClient($instanceConfig, $container);
-
-        // Build adapter configuration
+        // Build adapter configuration using convenience methods
         $adapterConfig = [
-            'collection_name' => $instanceConfig['collection_name'] ?? 'EdgeBindings',
-            'schema' => $instanceConfig['schema'] ?? ['auto_create' => true],
+            'collection_name' => $config->getInstanceValue('collection_name', 'EdgeBindings'),
+            'schema' => $config->getInstanceValue('schema', ['auto_create' => true]),
         ];
 
         return new WeaviateAdapter($client, $adapterConfig);
@@ -53,43 +50,29 @@ class WeaviateAdapterFactory implements AdapterFactoryInterface
     }
 
     /**
-     * Create or get Weaviate client from configuration.
+     * Get Weaviate client from container using configured service name.
      *
-     * @param array<string, mixed>        $config    Instance configuration
-     * @param ContainerInterface|null     $container Optional container
+     * @param AdapterConfiguration $config Configuration object
      *
      * @return WeaviateClient Weaviate client instance
      *
-     * @throws \InvalidArgumentException If configuration is invalid
+     * @throws \InvalidArgumentException If client service not available
      */
-    private function createWeaviateClient(array $config, ?ContainerInterface $container): WeaviateClient
-    {
-        // Try to get client from container first
-        if ($container && isset($config['use_container_client']) && $config['use_container_client']) {
-            if ($container->has(WeaviateClient::class)) {
-                return $container->get(WeaviateClient::class);
-            }
+    private function getWeaviateClientFromContainer(
+        AdapterConfiguration $config
+    ): WeaviateClient {
+        $container = $config->getContainer();
+
+        // Get service name from configuration, fall back to class name
+        $serviceName = $config->getInstanceValue('weaviate_client', WeaviateClient::class);
+
+        if (!$container->has($serviceName)) {
+            throw new \InvalidArgumentException(
+                "WeaviateClient service '{$serviceName}' not found in container. " .
+                'Please register a WeaviateClient service in your container.'
+            );
         }
 
-        // Create client from configuration
-        $host = $config['host'] ?? null;
-        $port = $config['port'] ?? null;
-        $scheme = $config['scheme'] ?? 'http';
-
-        if (!$host) {
-            throw new \InvalidArgumentException('Weaviate host is required');
-        }
-
-        if (!$port) {
-            throw new \InvalidArgumentException('Weaviate port is required');
-        }
-
-        if (!in_array($scheme, ['http', 'https'], true)) {
-            throw new \InvalidArgumentException('Invalid scheme: ' . $scheme);
-        }
-
-        // For now, use the connectToLocal method as it's the most reliable
-        // TODO: Support custom host/port/scheme configuration
-        return WeaviateClient::connectToLocal();
+        return $container->get($serviceName);
     }
 }
