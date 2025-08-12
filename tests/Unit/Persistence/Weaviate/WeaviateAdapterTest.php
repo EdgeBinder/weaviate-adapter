@@ -161,4 +161,58 @@ final class WeaviateAdapterTest extends TestCase
         $this->assertStringNotContainsString("\0", $type1);
         $this->assertStringNotContainsString("\0", $type2);
     }
+
+    /**
+     * Test edge cases in anonymous class sanitization for full coverage.
+     */
+    public function testAnonymousClassSanitizationEdgeCases(): void
+    {
+        // Test the fallback case when regex doesn't match (line 460)
+        // We need to use reflection to test the private method directly
+        $reflection = new \ReflectionClass($this->adapter);
+        $method = $reflection->getMethod('sanitizeAnonymousClassName');
+        $method->setAccessible(true);
+
+        // Test case 1: String that doesn't match the regex pattern (covers line 460)
+        // This should trigger the fallback return statement
+        $result = $method->invoke($this->adapter, 'some_random_string');
+        $this->assertStringStartsWith('class@anonymous_', $result);
+        $this->assertStringContainsString('_', $result); // Should contain hash
+
+        // Test case 2: Another non-matching string to ensure fallback works
+        $result = $method->invoke($this->adapter, 'not-anonymous-at-all');
+        $this->assertStringStartsWith('class@anonymous_', $result);
+
+        // Test case 3: Empty string (should also trigger fallback)
+        $result = $method->invoke($this->adapter, '');
+        $this->assertStringStartsWith('class@anonymous_', $result);
+    }
+
+    /**
+     * Test comprehensive sanitization scenarios to improve coverage.
+     */
+    public function testAnonymousClassSanitizationComprehensive(): void
+    {
+        // Use reflection to test the private method directly with various inputs
+        $reflection = new \ReflectionClass($this->adapter);
+        $method = $reflection->getMethod('sanitizeAnonymousClassName');
+        $method->setAccessible(true);
+
+        // Test with complex anonymous class name that has lots of special characters
+        $complexName = "class@anonymous\0/path/with/special:chars\$and@symbols/file.php:123\$456";
+        $result = $method->invoke($this->adapter, $complexName);
+
+        $this->assertStringContainsString('class@anonymous', $result);
+        $this->assertStringNotContainsString("\0", $result);
+        $this->assertStringNotContainsString('\\', $result);
+        $this->assertStringNotContainsString('/', $result);
+        $this->assertStringNotContainsString(':', $result);
+        $this->assertStringNotContainsString('$', $result);
+
+        // Test edge case: class@anonymous with minimal path
+        $minimalName = "class@anonymous/a";
+        $result = $method->invoke($this->adapter, $minimalName);
+        $this->assertStringContainsString('class@anonymous_', $result);
+        $this->assertStringContainsString('_a', $result);
+    }
 }
