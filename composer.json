@@ -27,7 +27,7 @@
     },
     "require": {
         "php": "^8.3",
-        "edgebinder/edgebinder": ">=0.7.0 <1.0",
+        "edgebinder/edgebinder": ">=0.7.1 <1.0",
         "psr/log": "^3.0",
         "zestic/weaviate-php-client": ">=0.5.0 <1.0"
     },
