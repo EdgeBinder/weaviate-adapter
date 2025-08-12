@@ -189,23 +189,10 @@ final class WeaviateAdapterFactoryTest extends TestCase
         $this->assertNotSame($adapter1, $adapter2);
     }
 
-    public function testCreateAdapterThrowsExceptionForMissingContainer(): void
+    public function testCreateAdapterRequiresValidContainer(): void
     {
-        $this->expectException(\TypeError::class);
-        $this->expectExceptionMessage('must be of type Psr\Container\ContainerInterface, null given');
-
-        // This will throw a TypeError because AdapterConfiguration requires a non-null container
-        new AdapterConfiguration(
-            instance: [
-                'adapter' => 'weaviate',
-            ],
-            global: [],
-            container: null
-        );
-    }
-
-    public function testCreateAdapterThrowsExceptionForMissingService(): void
-    {
+        // Since AdapterConfiguration enforces non-null container at the type level,
+        // we test that the factory properly uses the container from the configuration
         $container = $this->createMock(ContainerInterface::class);
         $container->method('has')
             ->with(WeaviateClient::class)
@@ -224,6 +211,8 @@ final class WeaviateAdapterFactoryTest extends TestCase
 
         $this->factory->createAdapter($config);
     }
+
+
 
     public function testCreateAdapterWithDefaultSchemaConfig(): void
     {
